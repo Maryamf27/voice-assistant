@@ -1,7 +1,48 @@
-import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
-import { createSession } from "@/lib/auth";
-import { connectToDatabase } from "@/lib/db";
-import { User } from "@/models/User";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { validateRegistration, type Registration } from "@/lib/validation";
-export async function POST(request: Request) { try { const input = await request.json() as Partial<Registration>; const error = validateRegistration(input); if (error) return NextResponse.json({ error }, { status: 400 }); await connectToDatabase(); const email = input.email!.trim().toLowerCase(); const existing = await User.exists({ email }); if (existing) return NextResponse.json({ error: "An account with this email already exists." }, { status: 409 }); const user = await User.create({ name: input.name!.trim(), email, passwordHash: await bcrypt.hash(input.password!, 12) }); await createSession({ id: user.id, name: user.name, email: user.email }); return NextResponse.json({ ok: true }, { status: 201 }); } catch (error) { if ((error as { code?: number }).code === 11000) return NextResponse.json({ error: "An account with this email already exists." }, { status: 409 }); console.error("Registration failed", error); return NextResponse.json({ error: "Unable to create your account. Please try again." }, { status: 500 }); } }
+
+export async function POST(request: Request) {
+  try {
+    const input = await request.json() as Partial<Registration>;
+    const validationError = validateRegistration(input);
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
+    }
+
+    const email = input.email!.trim().toLowerCase();
+    const name = input.name!.trim();
+
+    const supabase = await createSupabaseServerClient();
+
+    // Supabase Auth hashes and stores the password itself — this app never
+    // handles or stores a raw or hashed password.
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password: input.password!,
+      options: { data: { name } },
+    });
+
+    if (error) {
+      const message = /already registered|already exists/i.test(error.message)
+        ? "An account with this email already exists."
+        : error.message;
+      return NextResponse.json({ error: message }, { status: error.status === 422 ? 409 : (error.status ?? 400) });
+    }
+
+    if (!data.session) {
+      // The Supabase project has "Confirm email" enabled, so signUp() doesn't
+      // return a session until the user clicks the confirmation link. Report
+      // this clearly instead of pretending sign-in succeeded.
+      return NextResponse.json(
+        { error: "Account created. Check your email to confirm it, then sign in." },
+        { status: 409 },
+      );
+    }
+
+    return NextResponse.json({ ok: true }, { status: 201 });
+  } catch (error) {
+    console.error("Registration failed", error);
+    return NextResponse.json({ error: "Unable to create your account. Please try again." }, { status: 500 });
+  }
+}

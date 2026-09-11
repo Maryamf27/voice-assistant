@@ -20,8 +20,6 @@ export default async function DashboardPage() {
     try {
       const [profileResult, generationsResult, voicesCountResult, recentResult] = await Promise.all([
         supabase.from("profiles").select("name").eq("id", user.id).single(),
-        // All figures are computed on the server from this user's own records —
-        // never client-supplied and never invented.
         supabase.from("generations").select("input").eq("user_id", user.id),
         supabase.from("voices").select("id", { count: "exact", head: true }).eq("user_id", user.id),
         supabase

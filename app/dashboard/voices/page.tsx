@@ -18,8 +18,6 @@ export default async function VoicesPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
-  // Ownership is enforced here (and again by RLS): only voices belonging to
-  // the authenticated user are ever returned.
   const { data: voices, error } = await supabase
     .from("voices")
     .select("id, name, type, fish_reference_id, created_at")

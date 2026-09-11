@@ -6,14 +6,9 @@ import type { VoiceType } from "@/lib/supabase/types";
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
 const MAX_QUERY_LENGTH = 200;
-
-// Filters correspond to real, existing data: which saved voice (if any) a
-// generation used. No database field is invented to support this — it's derived
-// by looking up the linked voice's type.
 const VOICE_TYPE_FILTERS = ["all", "default", "personal", "designed", "library"] as const;
 type VoiceTypeFilter = (typeof VOICE_TYPE_FILTERS)[number];
 
-// Escapes PostgREST ILIKE wildcard characters in user-supplied search text.
 function escapeLikePattern(value: string): string {
   return value.replace(/[%_\\]/g, (match) => `\\${match}`);
 }
@@ -47,9 +42,6 @@ export async function GET(request: Request) {
   }
 
   try {
-    // When filtering by a specific voice type, first resolve which of this
-    // user's own voices match — then filter generations by those ids. This
-    // avoids relying on fragile embedded-resource join filtering.
     let voiceIdFilter: string[] | null = null;
     if (rawVoiceType !== "all" && rawVoiceType !== "default") {
       const { data: matchingVoices, error: voicesError } = await supabase
@@ -74,15 +66,12 @@ export async function GET(request: Request) {
     if (rawVoiceType === "default") {
       query = query.is("voice_id", null);
     } else if (voiceIdFilter !== null) {
-      // An empty match list means "no generations can match" rather than "no filter".
       query = voiceIdFilter.length > 0 ? query.in("voice_id", voiceIdFilter) : query.eq("id", "00000000-0000-0000-0000-000000000000");
     }
 
     const { data: rows, count, error } = await query;
     if (error) throw error;
 
-    // Look up each represented voice's type in one extra query, so History can
-    // label e.g. "Personal" / "Designed" / "Library" per row.
     const voiceIds = Array.from(new Set((rows ?? []).map((row) => row.voice_id).filter((id): id is string => Boolean(id))));
     const voiceTypeById = new Map<string, VoiceType>();
     if (voiceIds.length > 0) {
@@ -106,15 +95,9 @@ export async function GET(request: Request) {
       voiceType: row.voice_id ? voiceTypeById.get(row.voice_id) ?? null : null,
       model: row.model ?? null,
       status: row.status,
-      // Only ever the real, persisted storage path — never a placeholder for
-      // pending/failed items. Kept as the storage path here; the frontend
-      // already receives a fully-formed signed URL on creation via /api/tts,
-      // and a fresh one is minted below for completed items on read.
       audioUrl: row.status === "completed" ? row.audio_url ?? null : null,
       createdAt: row.created_at,
     }));
-
-    // Mint a fresh signed URL for each completed item's stored path.
     const withSignedUrls = await Promise.all(
       items.map(async (item) => ({
         ...item,

@@ -15,8 +15,6 @@ export async function POST(request: Request) {
 
     const supabase = await createSupabaseServerClient();
 
-    // Supabase Auth hashes and stores the password itself — this app never
-    // handles or stores a raw or hashed password.
     const { data, error } = await supabase.auth.signUp({
       email,
       password: input.password!,
@@ -31,9 +29,6 @@ export async function POST(request: Request) {
     }
 
     if (!data.session) {
-      // The Supabase project has "Confirm email" enabled, so signUp() doesn't
-      // return a session until the user clicks the confirmation link. Report
-      // this clearly instead of pretending sign-in succeeded.
       return NextResponse.json(
         { error: "Account created. Check your email to confirm it, then sign in." },
         { status: 409 },

@@ -41,10 +41,6 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "" }: { vo
         if (code === "provider_unavailable") setUnavailable(message); else setError(message);
         return;
       }
-
-      // The response contains the real, persisted storage URL — audio is durably
-      // saved before this ever reaches the browser, so it can be replayed later
-      // from History without regenerating it.
       const data = await response.json() as { audioUrl: string };
       setAudioUrl(data.audioUrl);
     } catch {

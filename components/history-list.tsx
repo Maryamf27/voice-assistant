@@ -55,7 +55,7 @@ export function HistoryList() {
       params.set("limit", String(PAGE_SIZE));
 
       const response = await fetch(`/api/history?${params.toString()}`);
-      if (thisRequest !== requestId.current) return; // superseded by a newer request
+      if (thisRequest !== requestId.current) return;
 
       if (!response.ok) {
         let message = "Unable to load history right now.";
@@ -203,7 +203,6 @@ function HistoryCard({ item, onDelete }: { item: HistoryItem; onDelete: () => vo
       </div>
 
       {item.status === "completed" && item.audioUrl && (
-        // Replayed directly from persistent storage — never regenerated.
         <div className="mt-4 overflow-hidden rounded-xl border border-base-border bg-base-bg p-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="h-9 flex-1">

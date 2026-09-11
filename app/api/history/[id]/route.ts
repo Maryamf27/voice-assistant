@@ -15,10 +15,6 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   if (!UUID_PATTERN.test(id)) {
     return NextResponse.json({ error: "That generation is invalid." }, { status: 400 });
   }
-
-  // Ownership is enforced in the query itself (and again by RLS): a user can
-  // only ever find/delete a generation record that belongs to their own
-  // session's user id.
   const { data: generation, error: findError } = await supabase
     .from("generations")
     .select("audio_url")
@@ -41,7 +37,6 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   }
 
   if (generation.audio_url) {
-    // Best-effort: deleteAudio() logs failures but never blocks removing the record.
     await deleteAudio(supabase, generation.audio_url);
   }
 

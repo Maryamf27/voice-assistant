@@ -3,12 +3,6 @@ import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { IconAlert, IconClose } from "@/components/icons";
 
-/**
- * A small, dependency-free modal dialog used in place of window.confirm().
- * - Renders in a portal so it always sits above app content, at any viewport size.
- * - Traps focus, closes on Escape / backdrop click, and restores focus on close.
- * - Sized to be comfortable on phones (full-width with margin) up to desktop (fixed max width).
- */
 export function ConfirmDialog({
   open,
   title,

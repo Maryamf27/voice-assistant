@@ -158,15 +158,6 @@ function Brand() {
     </Link>
   );
 }
-
-/**
- * Slide-in navigation drawer for phones/tablets.
- * Portal-rendered with:
- * - scroll lock
- * - Escape-to-close
- * - focus management
- * - automatic close on route changes
- */
 function MobileDrawer({
   open,
   path,
@@ -179,9 +170,6 @@ function MobileDrawer({
   const closeRef = useRef<HTMLButtonElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
 
-  // Close automatically whenever the route changes.
-  // This intentionally updates the parent drawer state in response to navigation.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     onClose();
   }, [path, onClose]);

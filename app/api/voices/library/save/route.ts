@@ -76,8 +76,6 @@ export async function POST(request: Request) {
     .single();
 
   if (error || !voice) {
-    // This is a shared, provider-owned voice model, not one we created — on
-    // failure there is nothing of ours on Fish Audio to clean up.
     console.error("Could not save library voice", error);
     return NextResponse.json({ error: "Unable to save this voice. Please try again." }, { status: 500 });
   }

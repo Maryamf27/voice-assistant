@@ -39,7 +39,6 @@ export async function cloneVoice({ title, audio }: CloneVoiceRequest): Promise<C
 
   let response: Response;
   try {
-    // Let fetch set the multipart Content-Type boundary itself; do not set it manually.
     response = await fetch(FISH_MODEL_URL, { method: "POST", headers: { Authorization: `Bearer ${apiKey}` }, body: form });
   } catch {
     throw new FishAudioError("The voice service could not be reached. Please try again.", 502);
@@ -182,7 +181,6 @@ function normalizeLibraryVoice(model: RawModelEntity): LibraryVoice {
     name: model.title,
     type: "library",
     fishReferenceId: model._id,
-    // Only ever a real preview URL returned by Fish Audio for this exact model — never fabricated.
     previewUrl: sample?.audio || null,
     metadata: {
       language: model.languages && model.languages.length > 0 ? model.languages[0] : undefined,
@@ -227,13 +225,6 @@ export async function searchVoices({ query, language, page = 1, pageSize = 12 }:
   return { voices, total: body.total ?? voices.length, hasMore: Boolean(body.has_more) };
 }
 
-/**
- * Re-fetches a single model directly from Fish Audio by id and returns it only if it
- * is genuinely public. Used before saving a library voice to "My Voices" so the
- * backend never trusts a client-supplied id/name pair blindly — it always resolves
- * the trusted record from the authorized source itself.
- * See: https://docs.fish.audio/api-reference/endpoint/model/get-model
- */
 export async function getPublicLibraryVoice(fishReferenceId: string): Promise<LibraryVoice | null> {
   const apiKey = process.env.FISH_API_KEY;
   if (!apiKey) throw new FishAudioError("Voice library search is not configured on this server.", 500);

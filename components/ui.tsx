@@ -108,7 +108,6 @@ export function ProviderUnavailableNotice({ message }: { message: string }) {
   );
 }
 
-/** Animated equalizer bars — used in-place of plain "Loading…" text throughout the studio. */
 export function Equalizer({ label, size = "md" }: { label?: string; size?: "sm" | "md" }) {
   const heights = size === "sm" ? ["40%", "70%", "100%", "55%", "80%"] : ["35%", "65%", "100%", "50%", "85%"];
   const anims = ["animate-eq3", "animate-eq1", "animate-eq5", "animate-eq2", "animate-eq4"];
@@ -130,7 +129,6 @@ export function Equalizer({ label, size = "md" }: { label?: string; size?: "sm" 
   );
 }
 
-/** Deterministic decorative waveform bars, seeded from a string so heights stay stable across renders. */
 export function Waveform({ seed, bars = 40, className = "", active = false }: { seed: string; bars?: number; className?: string; active?: boolean }) {
   let h = 0;
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;

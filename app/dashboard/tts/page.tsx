@@ -11,8 +11,6 @@ export default async function TtsPage({ searchParams }: { searchParams: Promise<
   let voices: TtsVoiceOption[] = [];
 
   if (user) {
-    // Only voices belonging to this user, and only ones with a real Fish Audio
-    // reference, are ever offered — a client cannot select someone else's voice.
     const { data: docs, error } = await supabase
       .from("voices")
       .select("id, name, type")

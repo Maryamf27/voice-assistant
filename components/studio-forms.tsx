@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, ProviderUnavailableNotice, Equalizer, Waveform } from "@/components/ui";
@@ -18,6 +18,11 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "" }: { vo
   const [error, setError] = useState("");
   const [unavailable, setUnavailable] = useState("");
   const [audioUrl, setAudioUrl] = useState("");
+  const resultRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (audioUrl) resultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [audioUrl]);
 
   async function handleGenerate() {
     const trimmed = text.trim();
@@ -110,7 +115,8 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "" }: { vo
             <p className="mt-1 text-xs text-brand-violetSoft/70">{model ? "Selected automatically for this workspace." : "Set FISH_TTS_MODEL on the server to enable generation."}</p>
           </div>
         </Card>
-        <Card className="p-5">
+        <div ref={resultRef}>
+          <Card className="p-5">
           <h2 className="font-medium text-ink-primary">Audio result</h2>
           {loading && (
             <div className="mt-4 flex h-28 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-base-border">
@@ -137,7 +143,8 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "" }: { vo
               Generated audio will appear here.
             </div>
           )}
-        </Card>
+          </Card>
+        </div>
       </div>
     </div>
   );

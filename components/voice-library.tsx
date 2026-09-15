@@ -28,7 +28,10 @@ export function VoiceLibrary() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const [query, setQuery] = useState(() => searchParams.get("search") ?? "");
+  const urlQuery = searchParams.get("search") ?? "";
+  const searchParamsString = searchParams.toString();
+  const searchParamsRef = useRef(searchParamsString);
+  const [query, setQuery] = useState(urlQuery);
   const [page, setPage] = useState(1);
   const [voices, setVoices] = useState<LibraryVoice[]>([]);
   const [total, setTotal] = useState(0);
@@ -76,16 +79,29 @@ export function VoiceLibrary() {
     }
   }
 
+  useEffect(() => {
+    searchParamsRef.current = searchParamsString;
+  }, [searchParamsString]);
+
+  useEffect(() => {
+    // URL navigation is an external source of truth for the local input state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setQuery((currentQuery) => currentQuery === urlQuery ? currentQuery : urlQuery);
+  }, [urlQuery]);
+
   // Load default/popular authorized voices on mount, then debounce as the user types.
   useEffect(() => {
+    const normalizedQuery = query.trim();
     const handle = setTimeout(() => {
-      runSearch(query, 1, false);
-      const nextParams = new URLSearchParams(searchParams.toString());
-      if (query.trim()) nextParams.set("search", query.trim()); else nextParams.delete("search");
+      runSearch(normalizedQuery, 1, false);
+
+      if (urlQuery === normalizedQuery) return;
+      const nextParams = new URLSearchParams(searchParamsRef.current);
+      if (normalizedQuery) nextParams.set("search", normalizedQuery); else nextParams.delete("search");
       router.replace(`${pathname}${nextParams.size ? `?${nextParams.toString()}` : ""}`, { scroll: false });
-    }, query ? SEARCH_DEBOUNCE_MS : 0);
+    }, normalizedQuery ? SEARCH_DEBOUNCE_MS : 0);
     return () => clearTimeout(handle);
-  }, [query, pathname, router, searchParams]);
+  }, [query, pathname, router, searchParams, urlQuery]);
 
   return (
     <div>

@@ -31,6 +31,7 @@ export function VoiceLibrary() {
   const urlQuery = searchParams.get("search") ?? "";
   const searchParamsString = searchParams.toString();
   const searchParamsRef = useRef(searchParamsString);
+  const urlQueryRef = useRef(urlQuery);
   const [query, setQuery] = useState(urlQuery);
   const [page, setPage] = useState(1);
   const [voices, setVoices] = useState<LibraryVoice[]>([]);
@@ -81,7 +82,8 @@ export function VoiceLibrary() {
 
   useEffect(() => {
     searchParamsRef.current = searchParamsString;
-  }, [searchParamsString]);
+    urlQueryRef.current = urlQuery;
+  }, [searchParamsString, urlQuery]);
 
   useEffect(() => {
     // URL navigation is an external source of truth for the local input state.
@@ -95,13 +97,13 @@ export function VoiceLibrary() {
     const handle = setTimeout(() => {
       runSearch(normalizedQuery, 1, false);
 
-      if (urlQuery === normalizedQuery) return;
+      if (urlQueryRef.current === normalizedQuery) return;
       const nextParams = new URLSearchParams(searchParamsRef.current);
       if (normalizedQuery) nextParams.set("search", normalizedQuery); else nextParams.delete("search");
       router.replace(`${pathname}${nextParams.size ? `?${nextParams.toString()}` : ""}`, { scroll: false });
     }, normalizedQuery ? SEARCH_DEBOUNCE_MS : 0);
     return () => clearTimeout(handle);
-  }, [query, pathname, router, searchParams, urlQuery]);
+  }, [query, pathname, router]);
 
   return (
     <div>

@@ -12,6 +12,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Authentication is required." }, { status: 401 });
   }
 
+  if (process.env.VOICE_DESIGN_ENABLED !== "true") {
+    return NextResponse.json({ error: "Voice Design is currently unavailable." }, { status: 403 });
+  }
+
   let input: SaveInput;
   try {
     input = await request.json() as SaveInput;

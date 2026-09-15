@@ -92,8 +92,38 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "" }: { vo
           </p>
         )}
         {unavailable && <ProviderUnavailableNotice message={unavailable} />}
+        <div ref={resultRef} className="mt-6">
+          <Card className="p-5">
+            <h2 className="font-medium text-ink-primary">Audio result</h2>
+            {loading && (
+              <div className="mt-4 flex h-28 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-base-border">
+                <Equalizer size="md" />
+                <p className="text-xs text-ink-faint">Rendering your audio…</p>
+              </div>
+            )}
+            {!loading && audioUrl && (
+              <div className="mt-4 space-y-3">
+                <div className="overflow-hidden rounded-xl border border-audio-mint/25 bg-audio-mint/[0.06] p-3">
+                  <div className="h-10">
+                    <Waveform seed={audioUrl} bars={48} className="h-full" active />
+                  </div>
+                  <AudioPlayer src={audioUrl} className="mt-2" />
+                </div>
+                <p className="flex items-center gap-1.5 text-xs text-audio-mint">
+                  <IconCheck className="h-3.5 w-3.5" />
+                  Generation complete.
+                </p>
+              </div>
+            )}
+            {!loading && !audioUrl && (
+              <div className="mt-4 flex h-28 items-center justify-center rounded-xl border border-dashed border-base-border text-center text-xs text-ink-faint">
+                Generated audio will appear here.
+              </div>
+            )}
+          </Card>
+        </div>
       </Card>
-      <div className="space-y-6">
+      <aside className="space-y-6">
         <Card className="p-5">
           <h2 className="font-medium text-ink-primary">Voice</h2>
           <Select
@@ -115,37 +145,7 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "" }: { vo
             <p className="mt-1 text-xs text-brand-violetSoft/70">{model ? "Selected automatically for this workspace." : "Set FISH_TTS_MODEL on the server to enable generation."}</p>
           </div>
         </Card>
-        <div ref={resultRef}>
-          <Card className="p-5">
-          <h2 className="font-medium text-ink-primary">Audio result</h2>
-          {loading && (
-            <div className="mt-4 flex h-28 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-base-border">
-              <Equalizer size="md" />
-              <p className="text-xs text-ink-faint">Rendering your audio…</p>
-            </div>
-          )}
-          {!loading && audioUrl && (
-            <div className="mt-4 space-y-3">
-              <div className="overflow-hidden rounded-xl border border-audio-mint/25 bg-audio-mint/[0.06] p-3">
-                <div className="h-10">
-                  <Waveform seed={audioUrl} bars={48} className="h-full" active />
-                </div>
-                <AudioPlayer src={audioUrl} className="mt-2" />
-              </div>
-              <p className="flex items-center gap-1.5 text-xs text-audio-mint">
-                <IconCheck className="h-3.5 w-3.5" />
-                Generation complete.
-              </p>
-            </div>
-          )}
-          {!loading && !audioUrl && (
-            <div className="mt-4 flex h-28 items-center justify-center rounded-xl border border-dashed border-base-border text-center text-xs text-ink-faint">
-              Generated audio will appear here.
-            </div>
-          )}
-          </Card>
-        </div>
-      </div>
+      </aside>
     </div>
   );
 }

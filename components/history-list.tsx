@@ -4,6 +4,7 @@ import { Card, StatusBadge, Equalizer, Waveform } from "@/components/ui";
 import { ConfirmDialog } from "@/components/dialog";
 import { Select } from "@/components/select";
 import { IconSearch, IconDownload, IconTrash, IconAlert } from "@/components/icons";
+import { AudioPlayer } from "@/components/audio-playback";
 
 const PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 400;
@@ -223,9 +224,7 @@ function HistoryCard({ item, onDelete }: { item: HistoryItem; onDelete: () => vo
               </button>
             </div>
           </div>
-          <audio controls src={item.audioUrl} className="mt-2 w-full">
-            Your browser does not support the audio element.
-          </audio>
+          <AudioPlayer src={item.audioUrl} className="mt-2" />
         </div>
       )}
 

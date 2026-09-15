@@ -283,7 +283,7 @@ export function DashboardSidebar({
   }
 
   return (
-    <aside className="hidden w-64 shrink-0 border-r border-base-border bg-base-bg/95 p-5 md:flex md:flex-col">
+    <aside className="hidden h-full w-64 shrink-0 border-r border-base-border bg-base-bg/95 p-5 md:flex md:flex-col">
       <Brand />
 
       <div className="flex-1 overflow-y-auto">

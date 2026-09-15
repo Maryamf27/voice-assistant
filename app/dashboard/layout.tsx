@@ -7,9 +7,9 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
   if (user === null) redirect("/login");
 
   return (
-    <div className="min-h-screen bg-base-bg md:flex">
+    <div className="h-screen overflow-hidden bg-base-bg md:flex">
       <DashboardSidebar />
-      <div className="min-w-0 flex-1">
+      <div className="flex min-w-0 min-h-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-base-border bg-base-bg/85 px-4 backdrop-blur-md md:px-8">
           <DashboardSidebar mobileOnly />
           <div className="ml-auto flex items-center gap-3">
@@ -22,7 +22,9 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
             </span>
           </div>
         </header>
-        <main className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">{children}</div>
+        </main>
       </div>
     </div>
   );

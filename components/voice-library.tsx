@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Card, Equalizer, Waveform } from "@/components/ui";
 import { IconSearch, IconCheck, IconTag, IconAlert } from "@/components/icons";
+import { AudioPlayer } from "@/components/audio-playback";
 
 const SEARCH_DEBOUNCE_MS = 400;
 
@@ -24,7 +25,10 @@ type LibraryVoice = {
 type SearchResponse = { voices: LibraryVoice[]; total: number; hasMore: boolean };
 
 export function VoiceLibrary() {
-  const [query, setQuery] = useState("");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const [query, setQuery] = useState(() => searchParams.get("search") ?? "");
   const [page, setPage] = useState(1);
   const [voices, setVoices] = useState<LibraryVoice[]>([]);
   const [total, setTotal] = useState(0);
@@ -74,9 +78,14 @@ export function VoiceLibrary() {
 
   // Load default/popular authorized voices on mount, then debounce as the user types.
   useEffect(() => {
-    const handle = setTimeout(() => { runSearch(query, 1, false); }, query ? SEARCH_DEBOUNCE_MS : 0);
+    const handle = setTimeout(() => {
+      runSearch(query, 1, false);
+      const nextParams = new URLSearchParams(searchParams.toString());
+      if (query.trim()) nextParams.set("search", query.trim()); else nextParams.delete("search");
+      router.replace(`${pathname}${nextParams.size ? `?${nextParams.toString()}` : ""}`, { scroll: false });
+    }, query ? SEARCH_DEBOUNCE_MS : 0);
     return () => clearTimeout(handle);
-  }, [query]);
+  }, [query, pathname, router, searchParams]);
 
   return (
     <div>
@@ -227,9 +236,7 @@ function VoiceLibraryCard({ voice }: { voice: LibraryVoice }) {
           <div className="h-8">
             <Waveform seed={voice.id} bars={32} className="h-full" />
           </div>
-          <audio controls src={voice.previewUrl} className="mt-1.5 w-full">
-            Your browser does not support the audio element.
-          </audio>
+          <AudioPlayer src={voice.previewUrl} className="mt-1.5" />
         </div>
       ) : (
         <p className="mt-4 text-xs text-ink-faint">No preview available.</p>

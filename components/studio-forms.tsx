@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Card, ProviderUnavailableNotice, Equalizer, Waveform } from "@/components/ui";
 import { Select } from "@/components/select";
 import { IconUpload, IconCheck, IconAlert, IconWaveform, IconMic, IconSparkle } from "@/components/icons";
+import { AudioPlayer } from "@/components/audio-playback";
 
 const MAX_TEXT_LENGTH = 5000;
 
@@ -123,9 +124,7 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "" }: { vo
                 <div className="h-10">
                   <Waveform seed={audioUrl} bars={48} className="h-full" active />
                 </div>
-                <audio controls src={audioUrl} className="mt-2 w-full">
-                  Your browser does not support the audio element.
-                </audio>
+                <AudioPlayer src={audioUrl} className="mt-2" />
               </div>
               <p className="flex items-center gap-1.5 text-xs text-audio-mint">
                 <IconCheck className="h-3.5 w-3.5" />
@@ -476,9 +475,7 @@ function DesignCandidateCard({ candidate, onSaved }: { candidate: VoiceCandidate
         <div className="h-8">
           <Waveform seed={candidate.id} bars={36} className="h-full" />
         </div>
-        <audio controls src={audioSrc} className="mt-1.5 w-full">
-          Your browser does not support the audio element.
-        </audio>
+        <AudioPlayer src={audioSrc} className="mt-1.5" />
       </div>
       <div className="mt-3 flex gap-2">
         <input

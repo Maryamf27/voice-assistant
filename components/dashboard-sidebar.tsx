@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import { LogoutButton } from "@/components/logout-button";
@@ -68,9 +68,11 @@ const sections: {
 
 function Navigation({
   path,
+  libraryHref,
   onNavigate,
 }: {
   path: string;
+  libraryHref: string;
   onNavigate: () => void;
 }) {
   return (
@@ -100,11 +102,12 @@ function Navigation({
             {section.links.map((link) => {
               const active = path === link.href;
               const Icon = link.icon;
+              const href = link.href === "/dashboard/library" ? libraryHref : link.href;
 
               return (
                 <Link
                   key={link.href}
-                  href={link.href}
+                  href={href}
                   onClick={onNavigate}
                   className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition ${
                     active
@@ -155,10 +158,12 @@ function Brand() {
 function MobileDrawer({
   open,
   path,
+  libraryHref,
   onClose,
 }: {
   open: boolean;
   path: string;
+  libraryHref: string;
   onClose: () => void;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -235,7 +240,7 @@ function MobileDrawer({
         </div>
 
         <div className="mt-2 flex-1 overflow-y-auto overscroll-contain">
-          <Navigation path={path} onNavigate={onClose} />
+          <Navigation path={path} libraryHref={libraryHref} onNavigate={onClose} />
         </div>
 
         <div className="mt-auto border-t border-base-border pt-4">
@@ -254,6 +259,19 @@ export function DashboardSidebar({
 }) {
   const [open, setOpen] = useState(false);
   const path = usePathname();
+  const searchParams = useSearchParams();
+  const [librarySearch, setLibrarySearch] = useState("");
+
+  useEffect(() => {
+    if (path !== "/dashboard/library") return;
+    // The library URL is the external source of truth for the persisted sidebar link.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLibrarySearch(searchParams.get("search") ?? "");
+  }, [path, searchParams]);
+
+  const libraryHref = librarySearch
+    ? `/dashboard/library?search=${encodeURIComponent(librarySearch)}`
+    : "/dashboard/library";
 
   if (mobileOnly) {
     return (
@@ -270,6 +288,7 @@ export function DashboardSidebar({
         <MobileDrawer
           open={open}
           path={path}
+          libraryHref={libraryHref}
           onClose={() => setOpen(false)}
         />
       </>
@@ -281,7 +300,7 @@ export function DashboardSidebar({
       <Brand />
 
       <div className="flex-1 overflow-y-auto">
-        <Navigation path={path} onNavigate={() => {}} />
+        <Navigation path={path} libraryHref={libraryHref} onNavigate={() => {}} />
       </div>
 
       <div className="mt-auto border-t border-base-border pt-4">

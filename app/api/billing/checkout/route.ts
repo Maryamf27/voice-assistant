@@ -18,7 +18,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    const checkout = await createPremiumCheckout({ packageId: body.packageId, userId: user.id, email: user.email });
+    const checkout = await createPremiumCheckout({
+      packageId: body.packageId,
+      userId: user.id,
+      email: user.email,
+    });
     return NextResponse.json(checkout);
   } catch (error) {
     console.error("Premium checkout creation failed", error);

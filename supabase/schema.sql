@@ -1,10 +1,34 @@
+do $$
+begin
+  create type public.profile_plan as enum ('free', 'premium');
+exception
+  when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  create type public.profile_subscription_status as enum ('inactive', 'active');
+exception
+  when duplicate_object then null;
+end $$;
+
 create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   name text not null,
   email text,
+  plan public.profile_plan not null default 'free',
+  subscription_status public.profile_subscription_status not null default 'inactive',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.profiles
+  add column if not exists plan public.profile_plan not null default 'free',
+  add column if not exists subscription_status public.profile_subscription_status not null default 'inactive';
+
+update public.profiles
+set plan = 'free', subscription_status = 'inactive'
+where plan is null or subscription_status is null;
 
 alter table public.profiles enable row level security;
 

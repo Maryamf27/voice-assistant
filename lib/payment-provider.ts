@@ -7,22 +7,29 @@ export type PremiumPackage = {
   name: string;
   priceLabel: string;
   billingPeriod: string;
+  description: string;
+  benefits: string[];
   variantId: string | null;
 };
 
+// Keep customer-facing package details in one place so pricing changes are deliberate.
 export const PREMIUM_PACKAGES: PremiumPackage[] = [
   {
     id: "monthly",
     name: "Premium Monthly",
-    priceLabel: process.env.PREMIUM_MONTHLY_PRICE_LABEL ?? "Configured in Lemon Squeezy",
-    billingPeriod: "Billed monthly",
+    priceLabel: "PKR 140",
+    billingPeriod: "/ month",
+    description: "Flexible access for month-to-month voice creation.",
+    benefits: ["Unrestricted Text to Speech generation", "Premium voice workspace", "Verified subscription access"],
     variantId: process.env.LEMON_SQUEEZY_MONTHLY_VARIANT_ID ?? null,
   },
   {
     id: "yearly",
     name: "Premium Yearly",
-    priceLabel: process.env.PREMIUM_YEARLY_PRICE_LABEL ?? "Configured in Lemon Squeezy",
-    billingPeriod: "Billed yearly",
+    priceLabel: "PKR 140",
+    billingPeriod: "/ year",
+    description: "Premium access with yearly billing for your voice workflow.",
+    benefits: ["Unrestricted Text to Speech generation", "Premium voice workspace", "Verified subscription access"],
     variantId: process.env.LEMON_SQUEEZY_YEARLY_VARIANT_ID ?? null,
   },
 ];

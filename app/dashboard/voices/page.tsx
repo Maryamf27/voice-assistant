@@ -4,6 +4,7 @@ import { VoiceCardActions } from "@/components/voice-card-actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { VoiceType } from "@/lib/supabase/types";
 import { IconMic, IconSparkle, IconLibrary } from "@/components/icons";
+import { getCurrentUser } from "@/lib/auth";
 
 type VoiceItem = { id: string; name: string; type: VoiceType; fish_reference_id: string | null; created_at: string };
 
@@ -14,14 +15,16 @@ const typeMeta: Record<string, { label: string; icon: (p: { className?: string }
 };
 
 export default async function VoicesPage() {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  const [supabase, currentUser] = await Promise.all([
+    createSupabaseServerClient(),
+    getCurrentUser(),
+  ]);
+  if (!currentUser) return null;
 
   const { data: voices, error } = await supabase
     .from("voices")
     .select("id, name, type, fish_reference_id, created_at")
-    .eq("user_id", user.id)
+    .eq("user_id", currentUser.id)
     .order("created_at", { ascending: false })
     .returns<VoiceItem[]>();
 

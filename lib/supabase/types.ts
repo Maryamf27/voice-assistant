@@ -11,6 +11,12 @@ export type UserSubscription = {
 export type Database = {
   public: {
     Tables: {
+      payment_webhook_events: {
+        Row: { id: number; provider: string; event_id: string; received_at: string };
+        Insert: { id?: number; provider: string; event_id: string; received_at?: string };
+        Update: Partial<{ provider: string; event_id: string; received_at: string }>;
+        Relationships: [];
+      };
       profiles: {
         Row: {
           id: string;

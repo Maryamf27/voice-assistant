@@ -36,11 +36,11 @@ export function PremiumPackages({ packages }: { packages: PremiumPackage[] }) {
             <p className="mt-4 text-2xl font-semibold text-ink-primary">{item.priceLabel}</p>
             <button
               type="button"
-              disabled={pending !== null || !item.priceId}
+              disabled={pending !== null || !item.variantId}
               onClick={() => startCheckout(item.id)}
               className="mt-6 w-full rounded-lg bg-brand-violet px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-violetDim disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {pending === item.id ? "Starting checkout…" : item.priceId ? "Subscribe" : "Not configured"}
+              {pending === item.id ? "Starting checkout…" : item.variantId ? "Subscribe" : "Not configured"}
             </button>
           </section>
         ))}

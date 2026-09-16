@@ -1,13 +1,19 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth";
 import { PageIntro, QuickActionCard, StatCard, EmptyState, StatusBadge, Waveform } from "@/components/ui";
 import { IconWaveform, IconMic, IconSparkle, IconLibrary, IconArrowRight, IconClock } from "@/components/icons";
 
 type RecentGeneration = { id: string; text: string; status: string; createdAt: string };
 
 export default async function DashboardPage() {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const [supabase, currentUser] = await Promise.all([
+    createSupabaseServerClient(),
+    getCurrentUser(),
+  ]);
+  const user = currentUser
+    ? { id: currentUser.id }
+    : null;
 
   let totalGenerations = 0;
   let charactersUsed = 0;
@@ -18,8 +24,7 @@ export default async function DashboardPage() {
 
   if (user) {
     try {
-      const [profileResult, generationsResult, voicesCountResult, recentResult] = await Promise.all([
-        supabase.from("profiles").select("name").eq("id", user.id).single(),
+      const [generationsResult, voicesCountResult, recentResult] = await Promise.all([
         supabase.from("generations").select("input").eq("user_id", user.id),
         supabase.from("voices").select("id", { count: "exact", head: true }).eq("user_id", user.id),
         supabase
@@ -34,7 +39,7 @@ export default async function DashboardPage() {
       if (voicesCountResult.error) throw voicesCountResult.error;
       if (recentResult.error) throw recentResult.error;
 
-      displayName = profileResult.data?.name || displayName;
+      displayName = currentUser?.name || displayName;
       totalGenerations = generationsResult.data?.length ?? 0;
       charactersUsed = (generationsResult.data ?? []).reduce((sum, row) => sum + (row.input?.length ?? 0), 0);
       savedVoices = voicesCountResult.count ?? 0;

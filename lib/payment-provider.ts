@@ -58,12 +58,15 @@ export async function createPremiumCheckout({
 
   const apiKey = requiredEnv("LEMON_SQUEEZY_API_KEY");
   const storeId = requiredEnv("LEMON_SQUEEZY_STORE_ID");
-  const origin = process.env.URL ?? "http://localhost:3000";
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? requiredEnv("URL")).replace(/\/$/, "");
 
   const checkoutData = {
     data: {
       type: "checkouts",
       attributes: {
+        product_options: {
+          redirect_url: `${appUrl}/dashboard`,
+        },
         checkout_data: {
           custom: {
             user_id: userId,

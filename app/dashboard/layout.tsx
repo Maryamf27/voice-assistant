@@ -2,6 +2,10 @@ import { redirect } from "next/navigation";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { getCurrentUser } from "@/lib/auth";
 import { getUserSubscription } from "@/lib/entitlements";
+import { DashboardRevalidator } from "@/components/dashboard-revalidator";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function DashboardLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const user = await getCurrentUser();
@@ -13,6 +17,7 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
 
   return (
     <div className="h-screen overflow-hidden bg-base-bg md:flex">
+      <DashboardRevalidator />
       <DashboardSidebar />
       <div className="flex min-w-0 min-h-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-base-border bg-base-bg/85 px-4 backdrop-blur-md md:px-8">

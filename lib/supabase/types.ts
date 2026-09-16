@@ -1,13 +1,34 @@
 export type VoiceType = "personal" | "designed" | "library";
 export type GenerationStatus = "pending" | "processing" | "completed" | "failed";
+export type Plan = "free" | "premium";
+export type SubscriptionStatus = "inactive" | "active";
+
+export type UserSubscription = {
+  plan: Plan;
+  subscriptionStatus: SubscriptionStatus;
+};
 
 export type Database = {
   public: {
     Tables: {
       profiles: {
-        Row: { id: string; name: string; email: string | null; created_at: string; updated_at: string };
-        Insert: { id: string; name: string; email?: string | null };
-        Update: Partial<{ name: string; email: string | null; updated_at: string }>;
+        Row: {
+          id: string;
+          name: string;
+          email: string | null;
+          plan: Plan;
+          subscription_status: SubscriptionStatus;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          name: string;
+          email?: string | null;
+          plan?: Plan;
+          subscription_status?: SubscriptionStatus;
+        };
+        Update: Partial<{ name: string; email: string | null; plan: Plan; subscription_status: SubscriptionStatus; updated_at: string }>;
         Relationships: [];
       };
       voices: {

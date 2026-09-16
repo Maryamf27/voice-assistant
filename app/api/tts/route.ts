@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { FishAudioError, generateSpeech, isProviderCreditError } from "@/lib/fish-audio";
 import { StorageError, getAudioUrl, uploadAudio } from "@/lib/storage";
-
-const MAX_TEXT_LENGTH = 5000;
+import { countTTSCharacters, getTTSAccess, getTTSCharacterLimit, MAX_TTS_REQUEST_LENGTH } from "@/lib/entitlements";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type TtsInput = { text?: unknown; voiceId?: unknown; model?: unknown };
@@ -24,10 +23,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Enter text to generate speech." }, { status: 400 });
     }
     const text = input.text.trim();
-    if (text.length > MAX_TEXT_LENGTH) {
+    const access = await getTTSAccess(user.id);
+    const characterCount = countTTSCharacters(text);
+    const characterLimit = getTTSCharacterLimit(access.plan);
+
+    if (characterCount > MAX_TTS_REQUEST_LENGTH) {
+      return NextResponse.json({ error: `Text must be ${MAX_TTS_REQUEST_LENGTH.toLocaleString()} characters or fewer.` }, { status: 400 });
+    }
+    if (characterLimit !== null && characterCount > characterLimit) {
       return NextResponse.json(
-        { error: `Text must be ${MAX_TEXT_LENGTH.toLocaleString()} characters or fewer.` },
-        { status: 400 },
+        {
+          error: "TTS_CHARACTER_LIMIT_EXCEEDED",
+          message: `Free plans can generate up to ${characterLimit.toLocaleString()} characters per request.`,
+          limit: characterLimit,
+          characterCount,
+          plan: access.plan,
+        },
+        { status: 403 },
       );
     }
 

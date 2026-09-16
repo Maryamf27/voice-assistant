@@ -1,10 +1,15 @@
 import { redirect } from "next/navigation";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { getCurrentUser } from "@/lib/auth";
+import { getUserSubscription } from "@/lib/entitlements";
 
 export default async function DashboardLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const user = await getCurrentUser();
   if (user === null) redirect("/login");
+
+  const subscription = await getUserSubscription(user.id);
+  const isPremium = subscription?.plan === "premium" && subscription.subscriptionStatus === "active";
+  const planLabel = isPremium ? "Premium" : "Free";
 
   return (
     <div className="h-screen overflow-hidden bg-base-bg md:flex">
@@ -15,7 +20,18 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
           <div className="ml-auto flex items-center gap-3">
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium text-ink-primary">{user.name}</p>
-              <p className="text-xs text-ink-faint">Your voice workspace</p>
+              <div className="flex items-center justify-end gap-2">
+                <p className="text-xs text-ink-faint">Your voice workspace</p>
+                <span
+                  className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${
+                    isPremium
+                      ? "border-audio-mint/30 bg-audio-mint/10 text-audio-mint"
+                      : "border-base-border bg-base-surface text-ink-muted"
+                  }`}
+                >
+                  {planLabel}
+                </span>
+              </div>
             </div>
             <span className="flex h-9 w-9 items-center justify-center rounded-full border border-base-border bg-base-surface text-sm font-semibold text-brand-violetSoft">
               {user.name.slice(0, 1).toUpperCase()}

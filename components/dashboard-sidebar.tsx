@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, type ReactElement } from "react";
 import { LogoutButton } from "@/components/logout-button";
 import {
   IconHome,
+  IconTag,
   IconWaveform,
   IconMic,
   IconLibrary,
@@ -31,6 +32,11 @@ const sections: {
         label: "Text to Speech",
         href: "/dashboard/tts",
         icon: IconWaveform,
+      },
+      {
+        label: "Premium",
+        href: "/dashboard/premium",
+        icon: IconTag,
       },
       {
         label: "Voice Cloning",

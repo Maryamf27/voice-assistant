@@ -1,6 +1,7 @@
 import { TtsForm } from "@/components/studio-forms";
 import { PageIntro } from "@/components/ui";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getTTSAccess, getTTSCharacterLimit } from "@/lib/entitlements";
 
 export type TtsVoiceOption = { id: string; name: string; type: string };
 
@@ -26,6 +27,7 @@ export default async function TtsPage({ searchParams }: { searchParams: Promise<
   }
 
   const model = process.env.FISH_TTS_MODEL ?? null;
+  const access = user ? await getTTSAccess(user.id) : { plan: "free" as const, isPremium: false };
   const initialVoiceId = requestedVoiceId && voices.some((voice) => voice.id === requestedVoiceId) ? requestedVoiceId : "";
 
   return (
@@ -35,7 +37,7 @@ export default async function TtsPage({ searchParams }: { searchParams: Promise<
         title="Text to Speech"
         description="Write your script, select a voice, and generate audio."
       />
-      <TtsForm voices={voices} model={model} initialVoiceId={initialVoiceId} />
+      <TtsForm voices={voices} model={model} initialVoiceId={initialVoiceId} characterLimit={getTTSCharacterLimit(access.plan)} />
     </>
   );
 }

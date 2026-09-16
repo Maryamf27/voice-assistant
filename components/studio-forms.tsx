@@ -6,12 +6,12 @@ import { Card, ProviderUnavailableNotice, Equalizer, Waveform } from "@/componen
 import { Select } from "@/components/select";
 import { IconUpload, IconCheck, IconAlert, IconWaveform, IconMic, IconSparkle } from "@/components/icons";
 import { AudioPlayer } from "@/components/audio-playback";
+import { FREE_TTS_CHARACTER_LIMIT, MAX_TTS_REQUEST_LENGTH } from "@/lib/entitlement-constants";
 
-const MAX_TEXT_LENGTH = 5000;
+const MAX_TEXT_LENGTH = MAX_TTS_REQUEST_LENGTH;
 
 type TtsVoiceOption = { id: string; name: string; type: string };
-
-export function TtsForm({ voices = [], model = null, initialVoiceId = "" }: { voices?: TtsVoiceOption[]; model?: string | null; initialVoiceId?: string }) {
+export function TtsForm({ voices = [], model = null, initialVoiceId = "", characterLimit = FREE_TTS_CHARACTER_LIMIT }: { voices?: TtsVoiceOption[]; model?: string | null; initialVoiceId?: string; characterLimit?: number | null }) {
   const [text, setText] = useState("");
   const [voiceId, setVoiceId] = useState(initialVoiceId);
   const [loading, setLoading] = useState(false);
@@ -28,6 +28,10 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "" }: { vo
     const trimmed = text.trim();
     if (!trimmed) { setError("Enter some text to generate speech."); return; }
     if (!model) { setError("Text-to-speech is not configured on this server."); return; }
+    if (characterLimit !== null && trimmed.length > characterLimit) {
+      setError(`Free plans can generate up to ${characterLimit.toLocaleString()} characters per request.`);
+      return;
+    }
 
     setLoading(true);
     setError("");
@@ -43,7 +47,13 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "" }: { vo
       if (!response.ok) {
         let message = "Unable to generate speech. Please try again.";
         let code = "";
-        try { const body = await response.json() as { error?: string; code?: string }; if (body.error) message = body.error; if (body.code) code = body.code; } catch { /* Use the default message. */ }
+        try {
+          const body = await response.json() as { error?: string; message?: string; code?: string };
+          if (body.message) message = body.message;
+          else if (body.error && body.error !== "TTS_CHARACTER_LIMIT_EXCEEDED") message = body.error;
+          if (body.error === "TTS_CHARACTER_LIMIT_EXCEEDED") code = body.error;
+          if (body.code) code = body.code;
+        } catch { /* Use the default message. */ }
         if (code === "provider_unavailable") setUnavailable(message); else setError(message);
         return;
       }
@@ -75,16 +85,24 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "" }: { vo
         />
         <div className="mt-2 flex justify-between text-xs text-ink-faint">
           <span>Clear, natural writing gives the best result.</span>
-          <span className="font-mono">{text.length.toLocaleString()} / {MAX_TEXT_LENGTH.toLocaleString()}</span>
+          <span className="font-mono">
+            {text.trim().length.toLocaleString()} {characterLimit === null ? "characters · Premium access" : `/ ${characterLimit.toLocaleString()}`}
+          </span>
         </div>
         <button
           type="button"
           onClick={handleGenerate}
-          disabled={loading || !text.trim()}
+          disabled={loading || !text.trim() || (characterLimit !== null && text.trim().length > characterLimit)}
           className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl bg-brand-violet px-4 py-3 text-sm font-medium text-white shadow-glowViolet transition hover:bg-brand-violetDim disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading ? <Equalizer label="Generating…" size="sm" /> : "Generate audio"}
         </button>
+        {characterLimit !== null && text.trim().length > characterLimit && (
+          <p role="alert" className="mt-3 flex items-start gap-2 rounded-lg bg-state-rose/10 px-3 py-2 text-sm text-state-rose">
+            <IconAlert className="mt-0.5 h-4 w-4 shrink-0" />
+            Free plans are limited to {characterLimit.toLocaleString()} characters per request.
+          </p>
+        )}
         {error && (
           <p role="alert" className="mt-3 flex items-start gap-2 rounded-lg bg-state-rose/10 px-3 py-2 text-sm text-state-rose">
             <IconAlert className="mt-0.5 h-4 w-4 shrink-0" />
@@ -276,11 +294,11 @@ export function CloneForm() {
         {loading ? <Equalizer label="Cloning voice…" size="sm" /> : "Clone voice"}
       </button>
       {error && (
-        <p role="alert" className="mt-3 flex items-start gap-2 rounded-lg bg-state-rose/10 px-3 py-2 text-sm text-state-rose">
-          <IconAlert className="mt-0.5 h-4 w-4 shrink-0" />
-          {error}
-        </p>
-      )}
+          <p role="alert" className="mt-3 flex items-start gap-2 rounded-lg bg-state-rose/10 px-3 py-2 text-sm text-state-rose">
+            <IconAlert className="mt-0.5 h-4 w-4 shrink-0" />
+            {error}
+          </p>
+        )}
       {unavailable && <ProviderUnavailableNotice message={unavailable} />}
       {success && (
         <p role="status" className="mt-3 flex items-center gap-2 rounded-lg bg-audio-mint/10 px-3 py-2 text-sm text-audio-mint">

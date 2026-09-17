@@ -161,16 +161,36 @@ function Brand() {
     </Link>
   );
 }
+function ProfileSummary({ userName, isPremium }: { userName: string; isPremium: boolean }) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-base-border bg-base-surface/60 px-3 py-2.5">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-base-border bg-base-card text-sm font-semibold text-brand-violetSoft">
+        {userName.slice(0, 1).toUpperCase()}
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium text-ink-primary">{userName}</p>
+        <p className={`mt-0.5 text-xs font-medium ${isPremium ? "text-amber-300" : "text-ink-muted"}`}>
+          {isPremium ? "✦ Premium" : "Free"}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function MobileDrawer({
   open,
   path,
   libraryHref,
   onClose,
+  userName,
+  isPremium,
 }: {
   open: boolean;
   path: string;
   libraryHref: string;
   onClose: () => void;
+  userName: string;
+  isPremium: boolean;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
@@ -249,7 +269,8 @@ function MobileDrawer({
           <Navigation path={path} libraryHref={libraryHref} onNavigate={onClose} />
         </div>
 
-        <div className="mt-auto border-t border-base-border pt-4">
+        <div className="mt-auto space-y-3 border-t border-base-border pt-4">
+          <ProfileSummary userName={userName} isPremium={isPremium} />
           <LogoutButton />
         </div>
       </aside>
@@ -260,8 +281,12 @@ function MobileDrawer({
 
 export function DashboardSidebar({
   mobileOnly = false,
+  userName,
+  isPremium,
 }: {
   mobileOnly?: boolean;
+  userName: string;
+  isPremium: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const path = usePathname();
@@ -296,6 +321,8 @@ export function DashboardSidebar({
           path={path}
           libraryHref={libraryHref}
           onClose={() => setOpen(false)}
+          userName={userName}
+          isPremium={isPremium}
         />
       </>
     );
@@ -309,7 +336,8 @@ export function DashboardSidebar({
         <Navigation path={path} libraryHref={libraryHref} onNavigate={() => {}} />
       </div>
 
-      <div className="mt-auto border-t border-base-border pt-4">
+      <div className="mt-auto space-y-3 border-t border-base-border pt-4">
+        <ProfileSummary userName={userName} isPremium={isPremium} />
         <LogoutButton />
       </div>
     </aside>

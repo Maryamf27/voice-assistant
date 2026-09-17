@@ -173,6 +173,10 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
 
 const CLONE_SAMPLE_TEXT = "This is my voice sample for cloning";
 const CLONE_SAMPLE_WORDS = CLONE_SAMPLE_TEXT.split(" ");
+const VAD_RMS_THRESHOLD = 0.045;
+const VAD_SUSTAINED_FRAMES = 4;
+
+type CloneRecordingState = "idle" | "waiting_for_speech" | "recording" | "processing";
 
 export function CloneForm() {
   const router = useRouter();
@@ -181,10 +185,16 @@ export function CloneForm() {
   const stream = useRef<MediaStream | null>(null);
   const chunks = useRef<Blob[]>([]);
   const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const vadFrame = useRef<number | null>(null);
+  const audioContext = useRef<AudioContext | null>(null);
+  const analyser = useRef<AnalyserNode | null>(null);
+  const speechFrames = useRef(0);
+  const speechDetected = useRef(false);
   const [name, setName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [recordingState, setRecordingState] = useState<CloneRecordingState>("idle");
   const [activeWord, setActiveWord] = useState(-1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -194,8 +204,10 @@ export function CloneForm() {
 
   useEffect(() => () => {
     if (progressTimer.current) clearInterval(progressTimer.current);
+    if (vadFrame.current !== null) cancelAnimationFrame(vadFrame.current);
     recorder.current?.stop();
     stream.current?.getTracks().forEach((track) => track.stop());
+    void audioContext.current?.close();
   }, []);
 
   function acceptFile(next: File | null) {
@@ -211,8 +223,53 @@ export function CloneForm() {
   }
 
   function stopTracks() {
+    if (progressTimer.current) clearInterval(progressTimer.current);
+    progressTimer.current = null;
+    if (vadFrame.current !== null) cancelAnimationFrame(vadFrame.current);
+    vadFrame.current = null;
+    analyser.current?.disconnect();
+    analyser.current = null;
+    void audioContext.current?.close();
+    audioContext.current = null;
     stream.current?.getTracks().forEach((track) => track.stop());
     stream.current = null;
+  }
+
+  function startWordAnimation() {
+    if (progressTimer.current || !speechDetected.current) return;
+    setRecordingState("recording");
+    setActiveWord(0);
+    progressTimer.current = setInterval(() => {
+      setActiveWord((current) => {
+        const next = current + 1;
+        if (next >= CLONE_SAMPLE_WORDS.length) {
+          if (progressTimer.current) clearInterval(progressTimer.current);
+          progressTimer.current = null;
+          return CLONE_SAMPLE_WORDS.length - 1;
+        }
+        return next;
+      });
+    }, 1200);
+  }
+
+  function monitorSpeech() {
+    const currentAnalyser = analyser.current;
+    if (!currentAnalyser || !recorder.current || recorder.current.state !== "recording") return;
+    const samples = new Uint8Array(currentAnalyser.fftSize);
+    currentAnalyser.getByteTimeDomainData(samples);
+    let sum = 0;
+    for (const sample of samples) {
+      const normalized = (sample - 128) / 128;
+      sum += normalized * normalized;
+    }
+    const rms = Math.sqrt(sum / samples.length);
+    if (rms >= VAD_RMS_THRESHOLD) speechFrames.current += 1;
+    else speechFrames.current = Math.max(0, speechFrames.current - 1);
+    if (!speechDetected.current && speechFrames.current >= VAD_SUSTAINED_FRAMES) {
+      speechDetected.current = true;
+      startWordAnimation();
+    }
+    vadFrame.current = requestAnimationFrame(monitorSpeech);
   }
 
   function reset() {
@@ -221,6 +278,10 @@ export function CloneForm() {
     setUnavailable("");
     setSuccess(false);
     setActiveWord(-1);
+    setRecordingState("idle");
+    speechDetected.current = false;
+    speechFrames.current = 0;
+    chunks.current = [];
     if (input.current) input.current.value = "";
   }
 
@@ -237,19 +298,38 @@ export function CloneForm() {
       stream.current = nextStream;
       recorder.current = nextRecorder;
       chunks.current = [];
+      speechDetected.current = false;
+      speechFrames.current = 0;
       setRecording(true);
-      setActiveWord(0);
+      setRecordingState("waiting_for_speech");
+      setActiveWord(-1);
       nextRecorder.ondataavailable = (event) => { if (event.data.size > 0) chunks.current.push(event.data); };
       nextRecorder.onstop = () => {
-        const audio = new File([new Blob(chunks.current, { type: nextRecorder.mimeType || "audio/webm" })], "microphone-clone.webm", { type: nextRecorder.mimeType || "audio/webm" });
+        const hadSpeech = speechDetected.current;
+        const audioBlob = new Blob(chunks.current, { type: nextRecorder.mimeType || "audio/webm" });
         stopTracks();
         setRecording(false);
+        setRecordingState("idle");
         setActiveWord(-1);
+        if (!hadSpeech) {
+          chunks.current = [];
+          setError("No speech detected. Please try again and speak into the microphone.");
+          return;
+        }
+        const audio = new File([audioBlob], "voice-clone.webm", { type: audioBlob.type || "audio/webm" });
         acceptFile(audio);
+        setRecordingState("processing");
         void handleClone(audio);
       };
       nextRecorder.start();
-      progressTimer.current = setInterval(() => setActiveWord((current) => (current + 1) % CLONE_SAMPLE_WORDS.length), 1200);
+      const context = new AudioContext();
+      const source = context.createMediaStreamSource(nextStream);
+      const nextAnalyser = context.createAnalyser();
+      nextAnalyser.fftSize = 2048;
+      source.connect(nextAnalyser);
+      audioContext.current = context;
+      analyser.current = nextAnalyser;
+      vadFrame.current = requestAnimationFrame(monitorSpeech);
     } catch (recordingError) {
       stopTracks();
       setRecording(false);
@@ -259,8 +339,6 @@ export function CloneForm() {
   }
 
   function stopRecording() {
-    if (progressTimer.current) clearInterval(progressTimer.current);
-    progressTimer.current = null;
     if (recorder.current?.state === "recording") recorder.current.stop();
   }
 
@@ -300,6 +378,7 @@ export function CloneForm() {
       setError("A network error occurred. Please check your connection and try again.");
     } finally {
       setLoading(false);
+      setRecordingState("idle");
     }
   }
 
@@ -332,16 +411,23 @@ export function CloneForm() {
         </div>
         {recording && (
           <div className="mt-5 rounded-xl border border-base-border bg-base-bg p-4" aria-live="polite">
-            <p className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-ink-faint">Read this sample</p>
-            <p className="flex flex-wrap gap-x-2 gap-y-2 text-lg leading-8 text-ink-muted">
-              {CLONE_SAMPLE_WORDS.map((word, index) => (
-                <span key={`${word}-${index}`} className={`inline-block transition duration-300 ${index === activeWord ? "scale-110 font-semibold text-audio-mint" : index < activeWord ? "text-ink-faint" : "text-ink-primary"}`}>{word}</span>
-              ))}
+            <p className="mb-3 text-sm font-medium text-audio-mint">
+              {recordingState === "waiting_for_speech" ? "Trying to listen…" : "Listening…"}
             </p>
+            {recordingState === "recording" && (
+              <>
+                <p className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-ink-faint">Read this sample</p>
+                <p className="flex flex-wrap gap-x-2 gap-y-2 text-lg leading-8 text-ink-muted">
+                  {CLONE_SAMPLE_WORDS.map((word, index) => (
+                    <span key={`${word}-${index}`} className={`inline-block transition duration-300 ${index === activeWord ? "scale-110 font-semibold text-audio-mint" : index < activeWord ? "text-ink-faint" : "text-ink-primary"}`}>{word}</span>
+                  ))}
+                </p>
+              </>
+            )}
           </div>
         )}
         <button type="button" onClick={recording ? stopRecording : startRecording} disabled={loading} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-audio-mint/40 bg-audio-mint/10 px-4 py-3 text-sm font-medium text-audio-mint transition hover:bg-audio-mint/20 disabled:cursor-not-allowed disabled:opacity-50">
-          <IconMic className="h-4 w-4" />{recording ? "Finish recording" : "Record voice sample"}
+          <IconMic className="h-4 w-4" />{recording ? "Finish recording" : recordingState === "processing" || loading ? "Creating your cloned voice…" : "Record voice sample"}
         </button>
       </div>
       <button
@@ -572,9 +658,7 @@ function DesignCandidateCard({ candidate, onSaved }: { candidate: VoiceCandidate
       setSaved(true);
       onSaved();
     } catch {
-      setError("A network error occurred. Please try again.");
-    } finally {
-      setSaving(false);
+      setError("A network error occurred. Please check your connection and try again.");
     }
   }
 

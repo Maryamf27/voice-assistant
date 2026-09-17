@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { FishAudioError, cloneVoice, deleteVoiceModel, isProviderCreditError } from "@/lib/fish-audio";
 import { MAX_DESIGN_AUDIO_BYTES, validateVoiceName } from "@/lib/validation";
+import { isVoiceDesignEnabled } from "@/lib/feature-flags";
 
 type SaveInput = { name?: unknown; audioBase64?: unknown };
 
@@ -12,7 +13,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Authentication is required." }, { status: 401 });
   }
 
-  if (process.env.VOICE_DESIGN_ENABLED !== "true") {
+  if (!isVoiceDesignEnabled()) {
     return NextResponse.json({ error: "Voice Design is currently unavailable." }, { status: 403 });
   }
 

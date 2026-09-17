@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import { DesignForm } from "@/components/studio-forms";
 import { PageIntro } from "@/components/ui";
+import { isVoiceDesignEnabled } from "@/lib/feature-flags";
 
 export default function DesignPage() {
-  if (process.env.VOICE_DESIGN_ENABLED !== "true") {
+  if (!isVoiceDesignEnabled()) {
     redirect("/dashboard");
   }
 

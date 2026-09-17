@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { FishAudioError, designVoice, isProviderCreditError } from "@/lib/fish-audio";
 import { validateDesignCandidateCount, validateVoiceInstruction, validateVoiceReferenceText } from "@/lib/validation";
+import { isVoiceDesignEnabled } from "@/lib/feature-flags";
 
 type DesignInput = { instruction?: unknown; referenceText?: unknown; n?: unknown };
 
@@ -11,7 +12,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Authentication is required." }, { status: 401 });
   }
 
-  if (process.env.VOICE_DESIGN_ENABLED !== "true") {
+  if (!isVoiceDesignEnabled()) {
     return NextResponse.json({ error: "Voice Design is currently unavailable." }, { status: 403 });
   }
 

@@ -87,10 +87,9 @@ export default async function DashboardPage() {
       <section className="mt-10">
         <h2 className="text-lg font-semibold text-ink-primary">Start creating</h2>
         <p className="mt-1 text-sm text-ink-muted">Choose a workspace to prepare your next voice project.</p>
-        <div className="mt-4 grid gap-4 lg:grid-cols-4">
+        <div className="mt-4 grid gap-4 lg:grid-cols-3">
           <QuickActionCard icon={<IconWaveform className="h-5 w-5" />} title="Text to Speech" description="Turn your script into expressive audio." href="/dashboard/tts" />
           <QuickActionCard icon={<IconMic className="h-5 w-5" />} title="Clone Voice" description="Prepare a recording for a personal voice." href="/dashboard/clone" />
-          <QuickActionCard icon={<IconSparkle className="h-5 w-5" />} title="Design Voice" description="Describe the voice you have in mind." href="/dashboard/design" />
           <QuickActionCard icon={<IconLibrary className="h-5 w-5" />} title="Voice Library" description="Search and add authorized voices." href="/dashboard/library" />
         </div>
       </section>

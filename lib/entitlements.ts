@@ -13,7 +13,7 @@ export async function getUserSubscription(userId?: string): Promise<UserSubscrip
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("profiles")
-    .select("plan, subscription_status")
+    .select("plan, subscription_status, lemonsqueezy_subscription_id, lemonsqueezy_customer_id, subscription_ends_at")
     .eq("id", authenticatedUserId)
     .single();
 
@@ -21,6 +21,9 @@ export async function getUserSubscription(userId?: string): Promise<UserSubscrip
   return {
     plan: data.plan as Plan,
     subscriptionStatus: data.subscription_status as SubscriptionStatus,
+    subscriptionId: data.lemonsqueezy_subscription_id,
+    customerId: data.lemonsqueezy_customer_id,
+    endsAt: data.subscription_ends_at,
   };
 }
 

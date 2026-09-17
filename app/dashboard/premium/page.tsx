@@ -1,6 +1,8 @@
 import { PageIntro } from "@/components/ui";
 import { PremiumPackages } from "@/components/premium-packages";
-import { PREMIUM_PACKAGES, isLemonSqueezyConfigured } from "@/lib/payment-provider";
+import { PREMIUM_PACKAGES, getSubscriptionVariantId, isLemonSqueezyConfigured } from "@/lib/payment-provider";
+import { getCurrentUser } from "@/lib/auth";
+import { getUserSubscription } from "@/lib/entitlements";
 
 export default function PremiumPage({ searchParams }: { searchParams: Promise<{ checkout?: string }> }) {
   return <PremiumContent searchParams={searchParams} />;
@@ -8,6 +10,10 @@ export default function PremiumPage({ searchParams }: { searchParams: Promise<{ 
 
 async function PremiumContent({ searchParams }: { searchParams: Promise<{ checkout?: string }> }) {
   const { checkout } = await searchParams;
+  const user = await getCurrentUser();
+  const subscription = user ? await getUserSubscription(user.id) : null;
+  const isPremium = subscription?.plan === "premium" && subscription.subscriptionStatus === "active";
+  const subscribedVariantId = isPremium ? await getSubscriptionVariantId(subscription?.subscriptionId ?? null) : null;
   return (
     <>
       <PageIntro eyebrow="Upgrade" title="Premium workspace" description="Unlock unrestricted Text to Speech generation with a verified subscription." />
@@ -26,7 +32,7 @@ async function PremiumContent({ searchParams }: { searchParams: Promise<{ checko
           Premium checkout is not configured yet. Packages become available after the server-side Lemon Squeezy API key, store ID, webhook secret, and variant IDs are set.
         </p>
       )}
-      <PremiumPackages packages={PREMIUM_PACKAGES} />
+      <PremiumPackages packages={PREMIUM_PACKAGES} isPremium={isPremium} subscribedVariantId={subscribedVariantId} />
     </>
   );
 }

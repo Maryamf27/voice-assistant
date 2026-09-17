@@ -121,6 +121,20 @@ export function verifyLemonSqueezyWebhook(payload: string, signature: string, se
   return signatureBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(signatureBuffer, expectedBuffer);
 }
 
+export async function getSubscriptionVariantId(subscriptionId: string | null): Promise<string | null> {
+  if (!subscriptionId || !process.env.LEMON_SQUEEZY_API_KEY) return null;
+  const response = await fetch(`https://api.lemonsqueezy.com/v1/subscriptions/${subscriptionId}`, {
+    headers: {
+      Authorization: `Bearer ${process.env.LEMON_SQUEEZY_API_KEY}`,
+      Accept: "application/vnd.api+json",
+    },
+    cache: "no-store",
+  });
+  if (!response.ok) return null;
+  const payload = (await response.json()) as { data?: { relationships?: { variant?: { data?: { id?: string } } } } };
+  return payload.data?.relationships?.variant?.data?.id ?? null;
+}
+
 export function isLemonSqueezyConfigured(): boolean {
   return Boolean(
     process.env.LEMON_SQUEEZY_API_KEY &&

@@ -6,6 +6,9 @@ export type SubscriptionStatus = "inactive" | "active";
 export type UserSubscription = {
   plan: Plan;
   subscriptionStatus: SubscriptionStatus;
+  subscriptionId: string | null;
+  customerId: string | null;
+  endsAt: string | null;
 };
 
 export type Database = {

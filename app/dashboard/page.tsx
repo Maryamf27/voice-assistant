@@ -112,11 +112,11 @@ export default async function DashboardPage() {
         ) : (
           <div className="space-y-3">
             {recent.map((item) => (
-              <div key={item.id} className="flex items-center gap-4 rounded-xl border border-base-border bg-base-card/90 p-4 transition hover:border-brand-violet/30">
-                <div className="hidden h-8 w-16 shrink-0 sm:block">
-                  <Waveform seed={item.id} bars={22} className="h-full" active={item.status === "completed"} />
+              <div key={item.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-3 rounded-xl border border-base-border bg-base-card/90 p-4 transition hover:border-brand-violet/30 sm:grid-cols-[4rem_minmax(0,1fr)_auto_auto]">
+                <div className="hidden h-8 min-w-0 overflow-hidden sm:block">
+                  <Waveform seed={item.id} bars={22} className="h-full max-w-full" active={item.status === "completed"} />
                 </div>
-                <p className="min-w-0 flex-1 truncate text-sm text-ink-primary/90">{item.text}</p>
+                <p className="min-w-0 truncate text-sm text-ink-primary/90">{item.text}</p>
                 <StatusBadge status={item.status} />
                 <p className="hidden shrink-0 text-xs text-ink-faint sm:block">{new Date(item.createdAt).toLocaleDateString()}</p>
               </div>

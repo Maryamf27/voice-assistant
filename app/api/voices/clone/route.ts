@@ -20,13 +20,15 @@ export async function POST(request: Request) {
   const rawName = form.get("name");
   const providedName = typeof rawName === "string" ? rawName.trim() : "";
   let name = providedName;
+  const { count: personalVoiceCount } = await supabase
+    .from("voices")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("type", "personal");
+  const cloneNumber = Math.max(1, (personalVoiceCount ?? 0) + 1);
   if (!name) {
-    const { count } = await supabase
-      .from("voices")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("type", "personal");
-    name = `Clone ${Math.max(1, (count ?? 0) + 1)}`;
+    const timestamp = new Date().toISOString().slice(0, 16).replace("T", " ");
+    name = `Clone - ${timestamp}`;
   }
   const nameError = validateVoiceName(name);
   if (nameError) {
@@ -47,7 +49,7 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(await file.arrayBuffer());
     fishModel = await cloneVoice({
       title: name,
-      audio: { data: buffer, filename: file.name || "sample.wav", contentType: file.type || "audio/wav" },
+      audio: { data: buffer, filename: `clone-${cloneNumber}.${file.name.toLowerCase().split(".").pop() || "webm"}`, contentType: file.type || "audio/webm" },
     });
   } catch (error) {
     if (isProviderCreditError(error)) {

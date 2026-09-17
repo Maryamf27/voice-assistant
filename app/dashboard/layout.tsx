@@ -16,10 +16,10 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
   return (
     <div className="h-screen overflow-hidden bg-base-bg md:flex">
       <DashboardRevalidator />
-      <DashboardSidebar userName={user.name} isPremium={isPremium} />
+      <DashboardSidebar isPremium={isPremium} />
       <div className="flex min-w-0 min-h-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-base-border bg-base-bg/85 px-4 backdrop-blur-md md:px-8">
-          <DashboardSidebar mobileOnly userName={user.name} isPremium={isPremium} />
+          <DashboardSidebar mobileOnly isPremium={isPremium} />
           <div className="ml-auto flex items-center gap-3">
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium text-ink-primary">{user.name}</p>

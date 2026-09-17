@@ -34,11 +34,6 @@ const sections: {
         icon: IconWaveform,
       },
       {
-        label: "Premium",
-        href: "/dashboard/premium",
-        icon: IconTag,
-      },
-      {
         label: "Voice Cloning",
         href: "/dashboard/clone",
         icon: IconMic,
@@ -161,19 +156,18 @@ function Brand() {
     </Link>
   );
 }
-function ProfileSummary({ userName, isPremium }: { userName: string; isPremium: boolean }) {
+function PremiumAction({ isPremium }: { isPremium: boolean }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-base-border bg-base-surface/60 px-3 py-2.5">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-base-border bg-base-card text-sm font-semibold text-brand-violetSoft">
-        {userName.slice(0, 1).toUpperCase()}
+    <Link
+      href="/dashboard/premium"
+      className="flex items-center gap-3 rounded-xl border border-amber-300/20 bg-amber-300/[0.04] px-3 py-2.5 text-amber-200/90 transition hover:border-amber-300/40 hover:bg-amber-300/[0.08]"
+    >
+      <IconTag className="h-4 w-4 shrink-0" />
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">✦ Premium</span>
+        <span className="block text-xs text-amber-100/60">{isPremium ? "Current plan" : "Upgrade your plan"}</span>
       </span>
-      <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-ink-primary">{userName}</p>
-        <p className={`mt-0.5 text-xs font-medium ${isPremium ? "text-amber-300" : "text-ink-muted"}`}>
-          {isPremium ? "✦ Premium" : "Free"}
-        </p>
-      </div>
-    </div>
+    </Link>
   );
 }
 
@@ -182,14 +176,12 @@ function MobileDrawer({
   path,
   libraryHref,
   onClose,
-  userName,
   isPremium,
 }: {
   open: boolean;
   path: string;
   libraryHref: string;
   onClose: () => void;
-  userName: string;
   isPremium: boolean;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -270,7 +262,7 @@ function MobileDrawer({
         </div>
 
         <div className="mt-auto space-y-3 border-t border-base-border pt-4">
-          <ProfileSummary userName={userName} isPremium={isPremium} />
+          <PremiumAction isPremium={isPremium} />
           <LogoutButton />
         </div>
       </aside>
@@ -281,11 +273,9 @@ function MobileDrawer({
 
 export function DashboardSidebar({
   mobileOnly = false,
-  userName,
   isPremium,
 }: {
   mobileOnly?: boolean;
-  userName: string;
   isPremium: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -321,7 +311,6 @@ export function DashboardSidebar({
           path={path}
           libraryHref={libraryHref}
           onClose={() => setOpen(false)}
-          userName={userName}
           isPremium={isPremium}
         />
       </>
@@ -337,7 +326,7 @@ export function DashboardSidebar({
       </div>
 
       <div className="mt-auto space-y-3 border-t border-base-border pt-4">
-        <ProfileSummary userName={userName} isPremium={isPremium} />
+        <PremiumAction isPremium={isPremium} />
         <LogoutButton />
       </div>
     </aside>

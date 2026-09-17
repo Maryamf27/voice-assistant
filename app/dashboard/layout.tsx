@@ -20,13 +20,16 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
       <div className="flex min-w-0 min-h-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-base-border bg-base-bg/85 px-4 backdrop-blur-md md:px-8">
           <DashboardSidebar mobileOnly isPremium={isPremium} />
-          <div className="ml-auto flex items-center gap-3">
-            <div className="hidden text-right sm:block">
-              <p className="text-sm font-medium text-ink-primary">{user.name}</p>
-              <p className="text-xs text-ink-faint">Your voice workspace</p>
-            </div>
-            <span className="flex h-9 w-9 items-center justify-center rounded-full border border-base-border bg-base-surface text-sm font-semibold text-brand-violetSoft">
-              {user.name.slice(0, 1).toUpperCase()}
+          <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3">
+            <p className="max-w-[9rem] truncate text-sm font-medium text-ink-primary sm:max-w-[14rem]">{user.name}</p>
+            <span
+              className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold tracking-wide ${
+                isPremium
+                  ? "border-amber-300/30 bg-amber-300/10 text-amber-200"
+                  : "border-base-border bg-base-surface text-ink-muted"
+              }`}
+            >
+              {isPremium ? "✦ Premium" : "Free"}
             </span>
           </div>
         </header>

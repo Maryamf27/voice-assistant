@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { PremiumPackage } from "@/lib/payment-provider";
 
-export function PremiumPackages({ packages }: { packages: PremiumPackage[] }) {
+export function PremiumPackages({ packages, isPremium, subscribedVariantId }: { packages: PremiumPackage[]; isPremium: boolean; subscribedVariantId: string | null }) {
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState("");
 
@@ -36,6 +36,7 @@ export function PremiumPackages({ packages }: { packages: PremiumPackage[] }) {
         {packages.map((item) => {
           const isYearly = item.id === "yearly";
           const isPending = pending === item.id;
+          const isSubscribedPackage = isPremium && item.variantId === subscribedVariantId;
 
           return (
             <section
@@ -66,11 +67,11 @@ export function PremiumPackages({ packages }: { packages: PremiumPackage[] }) {
               </ul>
               <button
                 type="button"
-                disabled={pending !== null || !item.variantId}
+                disabled={pending !== null || !item.variantId || isPremium}
                 onClick={() => startCheckout(item.id)}
                 className="mt-7 w-full rounded-lg bg-brand-violet px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-violetDim disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isPending ? "Starting checkout…" : item.variantId ? `Subscribe ${isYearly ? "Yearly" : "Monthly"}` : "Not configured"}
+                {isSubscribedPackage ? "Subscribed" : isPremium ? "Current plan" : isPending ? "Starting checkout…" : item.variantId ? `Subscribe ${isYearly ? "Yearly" : "Monthly"}` : "Not configured"}
               </button>
             </section>
           );

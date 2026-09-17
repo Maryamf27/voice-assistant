@@ -63,6 +63,11 @@ const sections: {
         href: "/dashboard/history",
         icon: IconClock,
       },
+      {
+        label: "Subscriptions",
+        href: "/dashboard/subscriptions",
+        icon: IconTag,
+      },
     ],
   },
 ];

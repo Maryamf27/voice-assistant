@@ -16,6 +16,7 @@ type LemonSqueezyEvent = {
       status?: string;
       customer_id?: number;
       ends_at?: string | null;
+      user_email?: string | null;
     };
   };
 };
@@ -58,29 +59,41 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Webhook could not be recorded." }, { status: 500 });
   }
 
-  const activeEvents = new Set(["subscription_created", "subscription_updated", "subscription_resumed", "subscription_payment_success"]);
-  const inactiveEvents = new Set(["subscription_cancelled", "subscription_expired", "subscription_paused"]);
-  if (userId && activeEvents.has(eventName) && event.data?.attributes?.status === "active") {
-    const attributes = event.data.attributes;
-    const { error } = await supabase.from("profiles").update({
-      plan: "premium",
-      subscription_status: "active",
-      lemonsqueezy_subscription_id: event.data.id,
-      lemonsqueezy_customer_id: attributes.customer_id ? String(attributes.customer_id) : null,
-      subscription_ends_at: attributes.ends_at ?? null,
-    }).eq("id", userId);
+  const attributes = event.data?.attributes;
+  const status = attributes?.status;
+  const endsAt = attributes?.ends_at ? new Date(attributes.ends_at) : null;
+  const accessContinues = endsAt !== null && endsAt.getTime() > Date.now();
+  const grantsAccess = status === "active" || (eventName === "subscription_cancelled" && accessContinues);
+  const revokesAccess = new Set(["subscription_expired", "subscription_paused", "subscription_payment_failed"]).has(eventName) ||
+    (eventName === "subscription_cancelled" && !accessContinues);
+
+  if (process.env.NODE_ENV === "development") {
+    console.log("[v0] Lemon Squeezy entitlement event", {
+      eventName,
+      subscriptionId: event.data?.id,
+      userId,
+      plan: grantsAccess ? "premium" : revokesAccess ? "free" : "unchanged",
+      subscriptionStatus: grantsAccess ? "active" : revokesAccess ? "inactive" : "unchanged",
+    });
+  }
+
+  if (userId && (grantsAccess || revokesAccess)) {
+    const update = grantsAccess
+      ? {
+          plan: "premium" as const,
+          subscription_status: "active" as const,
+          lemonsqueezy_subscription_id: event.data?.id ?? null,
+          lemonsqueezy_customer_id: attributes?.customer_id ? String(attributes.customer_id) : null,
+          subscription_ends_at: attributes?.ends_at ?? null,
+        }
+      : {
+          plan: "free" as const,
+          subscription_status: "inactive" as const,
+          subscription_ends_at: attributes?.ends_at ?? null,
+        };
+    const { error } = await supabase.from("profiles").update(update).eq("id", userId);
     if (error) {
-      console.error("Could not activate Premium entitlement", error);
-      return NextResponse.json({ error: "Entitlement update failed." }, { status: 500 });
-    }
-  } else if (userId && inactiveEvents.has(eventName)) {
-    const { error } = await supabase.from("profiles").update({
-      plan: "free",
-      subscription_status: "inactive",
-      subscription_ends_at: event.data?.attributes?.ends_at ?? null,
-    }).eq("id", userId);
-    if (error) {
-      console.error("Could not downgrade entitlement", error);
+      console.error("Could not synchronize Premium entitlement", error);
       return NextResponse.json({ error: "Entitlement update failed." }, { status: 500 });
     }
   }

@@ -50,16 +50,6 @@ export async function POST(request: Request) {
   if (!eventId || !eventName) return NextResponse.json({ error: "Missing event details." }, { status: 400 });
 
   const supabase = getAdminClient();
-  const { error: eventError } = await supabase.from("payment_webhook_events").insert({
-    provider: "lemonsqueezy",
-    event_id: `${eventName}:${eventId}`,
-  });
-  if (eventError?.code === "23505") return NextResponse.json({ received: true });
-  if (eventError) {
-    console.error("Could not record payment webhook", eventError);
-    return NextResponse.json({ error: "Webhook could not be recorded." }, { status: 500 });
-  }
-
   const attributes = event.data?.attributes;
   const status = attributes?.status;
   const endsAt = attributes?.ends_at ? new Date(attributes.ends_at) : null;
@@ -74,16 +64,19 @@ export async function POST(request: Request) {
     resolvedUserId = profile?.id;
   }
 
-  if (!resolvedUserId) {
-    console.error("Lemon Squeezy webhook could not identify a Supabase user", { eventName, subscriptionId: eventId });
-    return NextResponse.json({ error: "Webhook user could not be identified." }, { status: 422 });
-  }
   const accessContinues = endsAt !== null && endsAt.getTime() > Date.now();
   const grantsAccess = status === "active" || new Set(["subscription_created", "subscription_updated", "subscription_resumed", "subscription_unpaused", "subscription_payment_success"]).has(eventName);
   const revokesAccess = new Set(["subscription_expired", "subscription_paused", "subscription_payment_failed"]).has(eventName) ||
     (eventName === "subscription_cancelled" && !accessContinues);
 
-  if (process.env.NODE_ENV === "development") {
+  const entitlementEvent = grantsAccess || revokesAccess;
+  if (!entitlementEvent) return NextResponse.json({ received: true, ignored: "unhandled_event" });
+  if (!resolvedUserId) {
+    console.error("Lemon Squeezy webhook could not identify a Supabase user", { eventName, subscriptionId: eventId, hasCustomUserId: Boolean(userId), hasUserEmail: Boolean(attributes?.user_email) });
+    return NextResponse.json({ error: "Webhook user could not be identified." }, { status: 422 });
+  }
+
+  if (process.env.NODE_ENV !== "production") {
     console.log("[v0] Lemon Squeezy entitlement event", {
       eventName,
       subscriptionId: event.data?.id,
@@ -93,7 +86,7 @@ export async function POST(request: Request) {
     });
   }
 
-  if (resolvedUserId && (grantsAccess || revokesAccess)) {
+  if (resolvedUserId && entitlementEvent) {
     const { data: currentProfile } = await supabase
       .from("profiles")
       .select("lemonsqueezy_subscription_id")
@@ -122,6 +115,15 @@ export async function POST(request: Request) {
       console.error("Could not synchronize Premium entitlement", error);
       return NextResponse.json({ error: "Entitlement update failed." }, { status: 500 });
     }
+  }
+
+  const { error: eventError } = await supabase.from("payment_webhook_events").insert({
+    provider: "lemonsqueezy",
+    event_id: `${eventName}:${eventId}`,
+  });
+  if (eventError && eventError.code !== "23505") {
+    console.error("Could not record processed payment webhook", eventError);
+    return NextResponse.json({ error: "Webhook could not be recorded." }, { status: 500 });
   }
 
   return NextResponse.json({ received: true });

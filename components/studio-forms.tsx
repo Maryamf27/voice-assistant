@@ -177,6 +177,12 @@ const VAD_RMS_THRESHOLD = 0.045;
 const VAD_SUSTAINED_FRAMES = 4;
 
 type CloneRecordingState = "idle" | "waiting_for_speech" | "recording" | "processing";
+type SpeechListener = {
+  start: () => void;
+  stop: () => void;
+  onresult: ((event: { results: ArrayLike<{ 0: { transcript: string } }> }) => void) | null;
+  onerror: (() => void) | null;
+};
 
 export function CloneForm() {
   const router = useRouter();
@@ -185,11 +191,13 @@ export function CloneForm() {
   const stream = useRef<MediaStream | null>(null);
   const chunks = useRef<Blob[]>([]);
   const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const noSpeechTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const vadFrame = useRef<number | null>(null);
   const audioContext = useRef<AudioContext | null>(null);
   const analyser = useRef<AnalyserNode | null>(null);
   const speechFrames = useRef(0);
   const speechDetected = useRef(false);
+  const recognition = useRef<SpeechListener | null>(null);
   const [name, setName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -204,6 +212,8 @@ export function CloneForm() {
 
   useEffect(() => () => {
     if (progressTimer.current) clearInterval(progressTimer.current);
+    if (noSpeechTimer.current) clearTimeout(noSpeechTimer.current);
+    noSpeechTimer.current = null;
     if (vadFrame.current !== null) cancelAnimationFrame(vadFrame.current);
     recorder.current?.stop();
     stream.current?.getTracks().forEach((track) => track.stop());
@@ -227,12 +237,30 @@ export function CloneForm() {
     progressTimer.current = null;
     if (vadFrame.current !== null) cancelAnimationFrame(vadFrame.current);
     vadFrame.current = null;
+    recognition.current?.stop();
+    recognition.current = null;
     analyser.current?.disconnect();
     analyser.current = null;
     void audioContext.current?.close();
     audioContext.current = null;
     stream.current?.getTracks().forEach((track) => track.stop());
     stream.current = null;
+  }
+
+  function normalizeWords(value: string) {
+    return value.toLowerCase().replace(/[^a-z\s]/g, "").split(/\s+/).filter(Boolean);
+  }
+
+  function advanceFromSpeech(transcript: string) {
+    const spoken = normalizeWords(transcript);
+    const target = normalizeWords(CLONE_SAMPLE_TEXT);
+    let matched = 0;
+    while (matched < spoken.length && matched < target.length && spoken[matched] === target[matched]) matched += 1;
+    if (matched > 0) {
+      setRecordingState("recording");
+      setActiveWord(Math.min(matched - 1, CLONE_SAMPLE_WORDS.length - 1));
+      if (matched >= target.length) stopRecording();
+    }
   }
 
   function startWordAnimation() {
@@ -245,6 +273,7 @@ export function CloneForm() {
         if (next >= CLONE_SAMPLE_WORDS.length) {
           if (progressTimer.current) clearInterval(progressTimer.current);
           progressTimer.current = null;
+          stopRecording();
           return CLONE_SAMPLE_WORDS.length - 1;
         }
         return next;
@@ -322,6 +351,18 @@ export function CloneForm() {
         void handleClone(audio);
       };
       nextRecorder.start();
+      const SpeechRecognition = (window as Window & { SpeechRecognition?: new () => SpeechListener; webkitSpeechRecognition?: new () => SpeechListener }).SpeechRecognition
+        ?? (window as Window & { webkitSpeechRecognition?: new () => SpeechListener }).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const listener = new SpeechRecognition();
+        listener.onresult = (event) => {
+          const transcript = Array.from(event.results).map((result) => result[0]?.transcript ?? "").join(" ");
+          advanceFromSpeech(transcript);
+        };
+        listener.onerror = () => { /* VAD remains the safe fallback. */ };
+        recognition.current = listener;
+        listener.start();
+      }
       const context = new AudioContext();
       const source = context.createMediaStreamSource(nextStream);
       const nextAnalyser = context.createAnalyser();
@@ -330,6 +371,12 @@ export function CloneForm() {
       audioContext.current = context;
       analyser.current = nextAnalyser;
       vadFrame.current = requestAnimationFrame(monitorSpeech);
+      noSpeechTimer.current = setTimeout(() => {
+        if (!speechDetected.current && recorder.current?.state === "recording") {
+          setError("No speech detected. Please try again.");
+          recorder.current.stop();
+        }
+      }, 10000);
     } catch (recordingError) {
       stopTracks();
       setRecording(false);

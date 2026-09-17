@@ -28,7 +28,9 @@ export function validateVoiceName(name: unknown): string | null {
 
 export function validateCloneAudioFile(file: unknown): string | null {
   if (!(file instanceof File) || file.size === 0) return "Upload an audio sample to clone.";
-  if (!ALLOWED_CLONE_AUDIO_TYPES.has(file.type)) return "Upload a WAV, MP3, M4A, OGG, or WEBM audio file.";
+  const extension = file.name.toLowerCase().split(".").pop();
+  const allowedExtension = new Set(["wav", "mp3", "m4a", "ogg", "webm"]).has(extension ?? "");
+  if (!ALLOWED_CLONE_AUDIO_TYPES.has(file.type) && !allowedExtension) return "Upload a WAV, MP3, M4A, OGG, or WEBM audio file.";
   if (file.size > MAX_CLONE_AUDIO_BYTES) return `Audio file must be ${MAX_CLONE_AUDIO_BYTES / (1024 * 1024)}MB or smaller.`;
   return null;
 }

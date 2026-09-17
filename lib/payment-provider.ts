@@ -65,7 +65,7 @@ export async function createPremiumCheckout({
       type: "checkouts",
       attributes: {
         product_options: {
-          redirect_url: `${appUrl}/dashboard`,
+          redirect_url: `${appUrl}/dashboard?checkout=success`,
         },
         checkout_data: {
           custom: {

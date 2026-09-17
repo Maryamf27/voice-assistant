@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
-import { IconAlert, IconWaveform } from "@/components/icons";
+import { IconAlert, IconCheck, IconWaveform } from "@/components/icons";
 
 type Mode = "login" | "register";
 
@@ -9,6 +9,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
   const isRegister = mode === "register";
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [confirmationEmail, setConfirmationEmail] = useState("");
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -22,9 +23,13 @@ export function AuthForm({ mode }: { mode: Mode }) {
     setLoading(true);
     try {
       const response = await fetch(`/api/auth/${mode}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const data: { error?: string } = await response.json();
+      const data: { error?: string; email?: string } = await response.json();
       if (!response.ok) {
         setError(data.error ?? "Something went wrong.");
+        return;
+      }
+      if (isRegister) {
+        setConfirmationEmail(String(data.email ?? body.email));
         return;
       }
       window.location.assign("/dashboard");
@@ -33,6 +38,28 @@ export function AuthForm({ mode }: { mode: Mode }) {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (confirmationEmail) {
+    return (
+      <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-base-bg px-4">
+        <div className="pointer-events-none absolute inset-0 bg-aurora-violet" />
+        <div className="pointer-events-none absolute inset-0 bg-aurora-mint" />
+        <section className="glass relative w-full max-w-md rounded-2xl border border-base-border p-8 text-center shadow-panel sm:p-10" role="status" aria-live="polite">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-audio-mint/30 bg-audio-mint/10 text-audio-mint shadow-[0_0_28px_rgba(100,225,190,0.16)]">
+            <IconCheck className="h-8 w-8" />
+          </div>
+          <p className="mt-6 text-xs font-semibold uppercase tracking-[0.18em] text-audio-mint">Account created</p>
+          <h1 className="mt-3 font-display text-2xl font-semibold text-ink-primary">Congratulations</h1>
+          <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-ink-muted">
+            We sent a confirmation email to <span className="font-medium text-ink-primary">{confirmationEmail}</span>. Confirm your email, then sign in to continue.
+          </p>
+          <Link href="/login" className="mt-7 inline-flex w-full items-center justify-center rounded-lg bg-brand-violet px-4 py-2.5 font-medium text-white shadow-glowViolet transition hover:bg-brand-violetDim">
+            Go to sign in
+          </Link>
+        </section>
+      </main>
+    );
   }
 
   return (

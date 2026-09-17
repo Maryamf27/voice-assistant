@@ -409,23 +409,19 @@ export function CloneForm() {
           </div>
           <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${recording ? "animate-pulse bg-state-rose" : "bg-ink-faint/40"}`} aria-hidden="true" />
         </div>
-        {recording && (
-          <div className="mt-5 rounded-xl border border-base-border bg-base-bg p-4" aria-live="polite">
-            <p className="mb-3 text-sm font-medium text-audio-mint">
+        <div className="mt-5 rounded-xl border border-base-border bg-base-bg p-4" aria-live="polite">
+          <p className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-ink-faint">Read this sample</p>
+          <p className="flex flex-wrap gap-x-2 gap-y-2 text-lg leading-8 text-ink-muted">
+            {CLONE_SAMPLE_WORDS.map((word, index) => (
+              <span key={`${word}-${index}`} className={`inline-block transition duration-300 ${index === activeWord ? "scale-110 font-semibold text-audio-mint" : index < activeWord ? "text-ink-faint" : "text-ink-primary"}`}>{word}</span>
+            ))}
+          </p>
+          {recording && (
+            <p className="mt-4 border-t border-base-border pt-3 text-sm font-medium text-audio-mint">
               {recordingState === "waiting_for_speech" ? "Trying to listen…" : "Listening…"}
             </p>
-            {recordingState === "recording" && (
-              <>
-                <p className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-ink-faint">Read this sample</p>
-                <p className="flex flex-wrap gap-x-2 gap-y-2 text-lg leading-8 text-ink-muted">
-                  {CLONE_SAMPLE_WORDS.map((word, index) => (
-                    <span key={`${word}-${index}`} className={`inline-block transition duration-300 ${index === activeWord ? "scale-110 font-semibold text-audio-mint" : index < activeWord ? "text-ink-faint" : "text-ink-primary"}`}>{word}</span>
-                  ))}
-                </p>
-              </>
-            )}
-          </div>
-        )}
+          )}
+        </div>
         <button type="button" onClick={recording ? stopRecording : startRecording} disabled={loading} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-audio-mint/40 bg-audio-mint/10 px-4 py-3 text-sm font-medium text-audio-mint transition hover:bg-audio-mint/20 disabled:cursor-not-allowed disabled:opacity-50">
           <IconMic className="h-4 w-4" />{recording ? "Finish recording" : recordingState === "processing" || loading ? "Creating your cloned voice…" : "Record voice sample"}
         </button>

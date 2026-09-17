@@ -17,6 +17,7 @@ type LemonSqueezyEvent = {
       customer_id?: number;
       ends_at?: string | null;
       user_email?: string | null;
+      user_name?: string | null;
     };
   };
 };
@@ -62,8 +63,23 @@ export async function POST(request: Request) {
   const attributes = event.data?.attributes;
   const status = attributes?.status;
   const endsAt = attributes?.ends_at ? new Date(attributes.ends_at) : null;
+  let resolvedUserId = userId;
+
+  if (!resolvedUserId && attributes?.user_email) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("email", attributes.user_email)
+      .maybeSingle();
+    resolvedUserId = profile?.id;
+  }
+
+  if (!resolvedUserId) {
+    console.error("Lemon Squeezy webhook could not identify a Supabase user", { eventName, subscriptionId: eventId });
+    return NextResponse.json({ error: "Webhook user could not be identified." }, { status: 422 });
+  }
   const accessContinues = endsAt !== null && endsAt.getTime() > Date.now();
-  const grantsAccess = status === "active" || (eventName === "subscription_cancelled" && accessContinues);
+  const grantsAccess = status === "active" || new Set(["subscription_created", "subscription_updated", "subscription_resumed", "subscription_unpaused", "subscription_payment_success"]).has(eventName);
   const revokesAccess = new Set(["subscription_expired", "subscription_paused", "subscription_payment_failed"]).has(eventName) ||
     (eventName === "subscription_cancelled" && !accessContinues);
 
@@ -71,13 +87,23 @@ export async function POST(request: Request) {
     console.log("[v0] Lemon Squeezy entitlement event", {
       eventName,
       subscriptionId: event.data?.id,
-      userId,
+      userId: resolvedUserId,
       plan: grantsAccess ? "premium" : revokesAccess ? "free" : "unchanged",
       subscriptionStatus: grantsAccess ? "active" : revokesAccess ? "inactive" : "unchanged",
     });
   }
 
-  if (userId && (grantsAccess || revokesAccess)) {
+  if (resolvedUserId && (grantsAccess || revokesAccess)) {
+    const { data: currentProfile } = await supabase
+      .from("profiles")
+      .select("lemonsqueezy_subscription_id")
+      .eq("id", resolvedUserId)
+      .maybeSingle();
+    const currentSubscriptionId = currentProfile?.lemonsqueezy_subscription_id;
+    if (revokesAccess && currentSubscriptionId && currentSubscriptionId !== event.data?.id) {
+      return NextResponse.json({ received: true, ignored: "stale_subscription_event" });
+    }
+
     const update = grantsAccess
       ? {
           plan: "premium" as const,
@@ -91,7 +117,7 @@ export async function POST(request: Request) {
           subscription_status: "inactive" as const,
           subscription_ends_at: attributes?.ends_at ?? null,
         };
-    const { error } = await supabase.from("profiles").update(update).eq("id", userId);
+    const { error } = await supabase.from("profiles").update(update).eq("id", resolvedUserId);
     if (error) {
       console.error("Could not synchronize Premium entitlement", error);
       return NextResponse.json({ error: "Entitlement update failed." }, { status: 500 });

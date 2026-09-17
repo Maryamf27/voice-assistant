@@ -18,11 +18,12 @@ export async function POST(request: Request) {
   }
 
   const rawName = form.get("name");
-  const nameError = validateVoiceName(rawName);
+  const providedName = typeof rawName === "string" ? rawName.trim() : "";
+  const name = providedName || `Clone - ${new Date().toISOString().slice(0, 16).replace("T", " ")}`;
+  const nameError = validateVoiceName(name);
   if (nameError) {
     return NextResponse.json({ error: nameError }, { status: 400 });
   }
-  const name = (rawName as string).trim();
 
   const audioFile = form.get("audio");
   const audioError = validateCloneAudioFile(audioFile);

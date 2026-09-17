@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, ProviderUnavailableNotice, Equalizer, Waveform } from "@/components/ui";
 import { Select } from "@/components/select";
@@ -148,7 +147,11 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
             value={voiceId}
             onChange={setVoiceId}
             disabled={voices.length === 0}
-            options={[{ value: "", label: "Default voice" }, ...voices.map((voice) => ({ value: voice.id, label: `${voice.name} (${voice.type})` }))]}
+            options={[
+              { value: "", label: "Default voice", group: "Default" },
+              ...voices.filter((voice) => voice.type === "personal").map((voice) => ({ value: voice.id, label: voice.name, group: "My Voices" })),
+              ...voices.filter((voice) => voice.type === "library").map((voice) => ({ value: voice.id, label: voice.name, group: "Library Voices" })),
+            ]}
             aria-label="Voice"
             className="mt-4"
           />
@@ -178,12 +181,14 @@ export function CloneForm() {
   const [error, setError] = useState("");
   const [unavailable, setUnavailable] = useState("");
   const [success, setSuccess] = useState(false);
+  const uploadedVoiceRef = useRef<HTMLDivElement>(null);
 
   function acceptFile(next: File | null) {
     setFile(next);
     setSuccess(false);
     setError("");
     setUnavailable("");
+    if (next) requestAnimationFrame(() => uploadedVoiceRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
   }
 
   function select(event: ChangeEvent<HTMLInputElement>) {
@@ -200,7 +205,6 @@ export function CloneForm() {
 
   async function handleClone() {
     const trimmedName = name.trim();
-    if (!trimmedName) { setError("Enter a name for this voice."); return; }
     if (!file) { setError("Choose an audio sample to clone."); return; }
 
     setLoading(true);
@@ -210,7 +214,7 @@ export function CloneForm() {
 
     try {
       const body = new FormData();
-      body.set("name", trimmedName);
+      if (trimmedName) body.set("name", trimmedName);
       body.set("audio", file);
 
       const response = await fetch("/api/voices/clone", { method: "POST", body });
@@ -223,10 +227,13 @@ export function CloneForm() {
         return;
       }
 
+      const cloned = await response.json() as { id?: string; name?: string };
+      if (!cloned.id) throw new Error("The cloned voice was saved without an ID.");
       setSuccess(true);
       setName("");
-      reset();
-      router.refresh();
+      setFile(null);
+      if (input.current) input.current.value = "";
+      router.push(`/dashboard/tts?voice=${encodeURIComponent(cloned.id)}`);
     } catch {
       setError("A network error occurred. Please check your connection and try again.");
     } finally {
@@ -242,7 +249,7 @@ export function CloneForm() {
           value={name}
           onChange={(e) => { setName(e.target.value); setSuccess(false); }}
           maxLength={100}
-          placeholder="e.g. My narration voice"
+          placeholder="Optional, e.g. My narration voice"
           className="mt-2"
         />
       </label>
@@ -272,7 +279,7 @@ export function CloneForm() {
       </button>
       <p className="mt-3 text-xs text-ink-faint">Supported: WAV, MP3, M4A, OGG, and WEBM, up to 20MB. For best results, use a clean 30–60 second recording.</p>
       {file && (
-        <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-base-border bg-base-bg p-4">
+        <div ref={uploadedVoiceRef} className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-base-border bg-base-bg p-4">
           <div className="flex min-w-0 items-center gap-3">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-audio-mint/30 bg-audio-mint/10 text-audio-mint">
               <IconMic className="h-4 w-4" />
@@ -291,7 +298,7 @@ export function CloneForm() {
         disabled={loading || !name.trim() || !file}
         className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl bg-brand-violet px-4 py-3 text-sm font-medium text-white shadow-glowViolet transition hover:bg-brand-violetDim disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {loading ? <Equalizer label="Cloning voice…" size="sm" /> : "Clone voice"}
+          {loading ? <Equalizer label="Cloning your voice…" size="sm" /> : "Clone voice"}
       </button>
       {error && (
           <p role="alert" className="mt-3 flex items-start gap-2 rounded-lg bg-state-rose/10 px-3 py-2 text-sm text-state-rose">
@@ -303,7 +310,7 @@ export function CloneForm() {
       {success && (
         <p role="status" className="mt-3 flex items-center gap-2 rounded-lg bg-audio-mint/10 px-3 py-2 text-sm text-audio-mint">
           <IconCheck className="h-4 w-4 shrink-0" />
-          Voice created successfully. <Link href="/dashboard/voices" className="underline">View in My Voices</Link>
+          Voice cloned successfully. Your cloned voice is being saved to My Voices.
         </p>
       )}
     </Card>

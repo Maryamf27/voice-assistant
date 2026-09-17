@@ -6,6 +6,7 @@ import { IconCheck, IconChevronDown } from "@/components/icons";
 export type SelectOption = {
   value: string;
   label: string;
+  group?: string;
 };
 
 export function Select({
@@ -192,11 +193,13 @@ export function Select({
         >
           {options.map((option, index) => {
             const isSelected = option.value === value;
+            const showGroup = option.group && (index === 0 || options[index - 1]?.group !== option.group);
             const isActive = index === activeIndex;
 
             return (
-              <li
-                key={option.value}
+              <div key={option.value} className="contents">
+                {showGroup && <div role="presentation" className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-faint">{option.group}</div>}
+              <div
                 id={`${listboxId}-${index}`}
                 role="option"
                 aria-selected={isSelected}
@@ -219,7 +222,8 @@ export function Select({
                 {isSelected && (
                   <IconCheck className="h-3.5 w-3.5 shrink-0 text-brand-violetSoft" />
                 )}
-              </li>
+              </div>
+              </div>
             );
           })}
         </ul>

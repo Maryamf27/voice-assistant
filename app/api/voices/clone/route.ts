@@ -19,7 +19,15 @@ export async function POST(request: Request) {
 
   const rawName = form.get("name");
   const providedName = typeof rawName === "string" ? rawName.trim() : "";
-  const name = providedName || `Clone - ${new Date().toISOString().slice(0, 16).replace("T", " ")}`;
+  let name = providedName;
+  if (!name) {
+    const { count } = await supabase
+      .from("voices")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("type", "personal");
+    name = `Clone ${Math.max(1, (count ?? 0) + 1)}`;
+  }
   const nameError = validateVoiceName(name);
   if (nameError) {
     return NextResponse.json({ error: nameError }, { status: 400 });

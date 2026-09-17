@@ -171,17 +171,32 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
   );
 }
 
+const CLONE_SAMPLE_TEXT = "This is my voice sample for cloning";
+const CLONE_SAMPLE_WORDS = CLONE_SAMPLE_TEXT.split(" ");
+
 export function CloneForm() {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
+  const recorder = useRef<MediaRecorder | null>(null);
+  const stream = useRef<MediaStream | null>(null);
+  const chunks = useRef<Blob[]>([]);
+  const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const [name, setName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [activeWord, setActiveWord] = useState(-1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [unavailable, setUnavailable] = useState("");
   const [success, setSuccess] = useState(false);
   const uploadedVoiceRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => () => {
+    if (progressTimer.current) clearInterval(progressTimer.current);
+    recorder.current?.stop();
+    stream.current?.getTracks().forEach((track) => track.stop());
+  }, []);
 
   function acceptFile(next: File | null) {
     setFile(next);
@@ -195,17 +210,64 @@ export function CloneForm() {
     acceptFile(event.target.files?.[0] ?? null);
   }
 
+  function stopTracks() {
+    stream.current?.getTracks().forEach((track) => track.stop());
+    stream.current = null;
+  }
+
   function reset() {
     setFile(null);
     setError("");
     setUnavailable("");
     setSuccess(false);
+    setActiveWord(-1);
     if (input.current) input.current.value = "";
   }
 
-  async function handleClone() {
+  async function startRecording() {
+    if (recording || loading) return;
+    setError("");
+    setUnavailable("");
+    try {
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+        throw new Error("Microphone recording is not supported in this browser.");
+      }
+      const nextStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const nextRecorder = new MediaRecorder(nextStream);
+      stream.current = nextStream;
+      recorder.current = nextRecorder;
+      chunks.current = [];
+      setRecording(true);
+      setActiveWord(0);
+      nextRecorder.ondataavailable = (event) => { if (event.data.size > 0) chunks.current.push(event.data); };
+      nextRecorder.onstop = () => {
+        const audio = new File([new Blob(chunks.current, { type: nextRecorder.mimeType || "audio/webm" })], "microphone-clone.webm", { type: nextRecorder.mimeType || "audio/webm" });
+        stopTracks();
+        setRecording(false);
+        setActiveWord(-1);
+        acceptFile(audio);
+        void handleClone(audio);
+      };
+      nextRecorder.start();
+      progressTimer.current = setInterval(() => setActiveWord((current) => (current + 1) % CLONE_SAMPLE_WORDS.length), 1200);
+    } catch (recordingError) {
+      stopTracks();
+      setRecording(false);
+      setActiveWord(-1);
+      setError(recordingError instanceof DOMException && recordingError.name === "NotAllowedError" ? "Microphone permission was denied. Allow microphone access to record a clone." : recordingError instanceof Error ? recordingError.message : "Unable to access the microphone.");
+    }
+  }
+
+  function stopRecording() {
+    if (progressTimer.current) clearInterval(progressTimer.current);
+    progressTimer.current = null;
+    if (recorder.current?.state === "recording") recorder.current.stop();
+  }
+
+  async function handleClone(fileOverride?: File) {
     const trimmedName = name.trim();
-    if (!file) { setError("Choose an audio sample to clone."); return; }
+    const selectedFile = fileOverride ?? file;
+    if (!selectedFile) { setError("Choose an audio sample to clone."); return; }
 
     setLoading(true);
     setError("");
@@ -215,7 +277,7 @@ export function CloneForm() {
     try {
       const body = new FormData();
       if (trimmedName) body.set("name", trimmedName);
-      body.set("audio", file);
+      body.set("audio", selectedFile);
 
       const response = await fetch("/api/voices/clone", { method: "POST", body });
 
@@ -260,6 +322,28 @@ export function CloneForm() {
         accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,audio/webm,audio/ogg"
         className="hidden"
       />
+      <div className="mt-6 rounded-2xl border border-audio-mint/25 bg-audio-mint/[0.05] p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="flex items-center gap-2 text-sm font-medium text-ink-primary"><IconMic className="h-4 w-4 text-audio-mint" />Record with microphone</p>
+            <p className="mt-1 text-xs leading-5 text-ink-faint">Read the sample aloud. Your actual microphone recording will be sent for cloning.</p>
+          </div>
+          <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${recording ? "animate-pulse bg-state-rose" : "bg-ink-faint/40"}`} aria-hidden="true" />
+        </div>
+        {recording && (
+          <div className="mt-5 rounded-xl border border-base-border bg-base-bg p-4" aria-live="polite">
+            <p className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-ink-faint">Read this sample</p>
+            <p className="flex flex-wrap gap-x-2 gap-y-2 text-lg leading-8 text-ink-muted">
+              {CLONE_SAMPLE_WORDS.map((word, index) => (
+                <span key={`${word}-${index}`} className={`inline-block transition duration-300 ${index === activeWord ? "scale-110 font-semibold text-audio-mint" : index < activeWord ? "text-ink-faint" : "text-ink-primary"}`}>{word}</span>
+              ))}
+            </p>
+          </div>
+        )}
+        <button type="button" onClick={recording ? stopRecording : startRecording} disabled={loading} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-audio-mint/40 bg-audio-mint/10 px-4 py-3 text-sm font-medium text-audio-mint transition hover:bg-audio-mint/20 disabled:cursor-not-allowed disabled:opacity-50">
+          <IconMic className="h-4 w-4" />{recording ? "Finish recording" : "Record voice sample"}
+        </button>
+      </div>
       <button
         type="button"
         onClick={() => input.current?.click()}
@@ -294,8 +378,8 @@ export function CloneForm() {
       )}
       <button
         type="button"
-        onClick={handleClone}
-        disabled={loading || !name.trim() || !file}
+        onClick={() => void handleClone()}
+        disabled={loading || recording || !file}
         className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl bg-brand-violet px-4 py-3 text-sm font-medium text-white shadow-glowViolet transition hover:bg-brand-violetDim disabled:cursor-not-allowed disabled:opacity-60"
       >
           {loading ? <Equalizer label="Cloning your voice…" size="sm" /> : "Clone voice"}

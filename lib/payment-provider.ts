@@ -113,7 +113,7 @@ export async function createPremiumCheckout({
 export function verifyLemonSqueezyWebhook(payload: string, signature: string, secret: string): boolean {
   const hmac = crypto.createHmac("sha256", secret);
   hmac.update(payload);
-  const expected = hmac.digest("base64");
+  const expected = hmac.digest("hex");
   
   const signatureBuffer = Buffer.from(signature);
   const expectedBuffer = Buffer.from(expected);

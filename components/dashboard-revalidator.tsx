@@ -15,7 +15,7 @@ export function DashboardRevalidator() {
 
     const refreshDashboard = () => {
       router.refresh();
-      if (checkout === "success" && retryCount < 4) {
+      if (checkout === "success" && retryCount < 20) {
         retryCount += 1;
         retryTimer = setTimeout(refreshDashboard, 1500);
       }

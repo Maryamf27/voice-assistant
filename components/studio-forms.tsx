@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Card, ProviderUnavailableNotice, Equalizer, Waveform } from "@/components/ui";
 import { Select } from "@/components/select";
-import { IconUpload, IconCheck, IconAlert, IconWaveform, IconMic, IconSparkle } from "@/components/icons";
+import { IconUpload, IconCheck, IconAlert, IconWaveform, IconMic, IconSparkle, IconLibrary } from "@/components/icons";
 import { AudioPlayer } from "@/components/audio-playback";
 import { FREE_TTS_CHARACTER_LIMIT, MAX_TTS_REQUEST_LENGTH } from "@/lib/entitlement-constants";
 
@@ -146,11 +146,13 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
           <Select
             value={voiceId}
             onChange={setVoiceId}
-            disabled={voices.length === 0}
+            disabled={false}
             options={[
-              { value: "", label: "Default voice", group: "Default" },
-              ...voices.filter((voice) => voice.type === "personal").map((voice) => ({ value: voice.id, label: voice.name, group: "My Voices" })),
-              ...voices.filter((voice) => voice.type === "library").map((voice) => ({ value: voice.id, label: voice.name, group: "Library Voices" })),
+              { value: "", label: "Default voice", group: "Voice Library", icon: <IconWaveform className="h-3.5 w-3.5 shrink-0 text-ink-faint" /> },
+              ...(voices.some((voice) => voice.type === "personal")
+                ? voices.filter((voice) => voice.type === "personal").map((voice) => ({ value: voice.id, label: voice.name, group: "My Voices", icon: <IconMic className="h-3.5 w-3.5 shrink-0 text-audio-mint" /> }))
+                : [{ value: "personal-empty", label: "No personal voices yet · Clone or record a voice to see it here.", group: "My Voices", disabled: true, icon: <IconMic className="h-3.5 w-3.5 shrink-0 text-ink-faint" /> }]),
+              ...voices.filter((voice) => voice.type === "library").map((voice) => ({ value: voice.id, label: voice.name, group: "Voice Library", icon: <IconLibrary className="h-3.5 w-3.5 shrink-0 text-brand-violetSoft" /> })),
             ]}
             aria-label="Voice"
             className="mt-4"

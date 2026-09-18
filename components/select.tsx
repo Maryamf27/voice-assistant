@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { IconCheck, IconChevronDown } from "@/components/icons";
 
 export type SelectOption = {
   value: string;
   label: string;
   group?: string;
+  icon?: ReactNode;
+  disabled?: boolean;
 };
 
 export function Select({
@@ -90,7 +92,7 @@ export function Select({
   function commit(index: number) {
     const option = options[index];
 
-    if (!option) return;
+    if (!option || option.disabled) return;
 
     onChange(option.value);
     setOpen(false);
@@ -198,14 +200,15 @@ export function Select({
 
             return (
               <div key={option.value} className="contents">
-                {showGroup && <div role="presentation" className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-faint">{option.group}</div>}
+                {showGroup && <div role="presentation" className={`${index > 0 ? "mt-1 border-t border-base-border pt-2" : "pt-2"} px-2.5 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-faint`}>{option.group}</div>}
               <div
                 id={`${listboxId}-${index}`}
                 role="option"
                 aria-selected={isSelected}
+                aria-disabled={option.disabled}
                 onMouseEnter={() => setActiveIndex(index)}
                 onClick={() => commit(index)}
-                className={`flex cursor-pointer items-center justify-between gap-2 rounded-md px-2.5 py-2 text-sm transition ${
+                className={`flex items-center justify-between gap-2 rounded-md px-2.5 py-2 text-sm transition ${option.disabled ? "cursor-default text-ink-faint/70" : "cursor-pointer"} ${
                   isActive
                     ? "bg-brand-violet/15 text-brand-violetSoft"
                     : "text-ink-muted"
@@ -215,8 +218,9 @@ export function Select({
                     : ""
                 }`}
               >
-                <span className="truncate">
-                  {option.label}
+                <span className="flex min-w-0 items-center gap-2 truncate">
+                  {option.icon}
+                  <span className="truncate">{option.label}</span>
                 </span>
 
                 {isSelected && (

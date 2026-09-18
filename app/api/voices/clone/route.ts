@@ -27,7 +27,16 @@ export async function POST(request: Request) {
     .eq("type", "personal");
   const cloneNumber = Math.max(1, (personalVoiceCount ?? 0) + 1);
   if (!name) {
-    const timestamp = new Date().toISOString().slice(0, 16).replace("T", " ");
+    const timestamp = new Date().toLocaleString("en-PK", {
+      timeZone: "Asia/Karachi",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+
     name = `Clone - ${timestamp}`;
   }
   const nameError = validateVoiceName(name);

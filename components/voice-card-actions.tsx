@@ -40,7 +40,7 @@ export function VoiceCardActions({ voiceId, readyForTts }: { voiceId: string; re
           type="button"
           onClick={() => setConfirmOpen(true)}
           disabled={deleting}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-base-border px-3 py-2 text-xs text-ink-muted transition hover:border-state-rose/40 hover:text-state-rose disabled:opacity-60"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-base-border px-3 py-2 text-xs text-ink-muted transition hover:border-state-rose/40 hover:text-state-rose disabled:opacity-100"
         >
           <IconTrash className="h-3.5 w-3.5" />
           {deleting ? "Deleting…" : "Delete"}

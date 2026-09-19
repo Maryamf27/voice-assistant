@@ -120,7 +120,7 @@ export function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={loading}
-            className={`w-full rounded-lg px-4 py-2.5 text-sm font-medium text-white shadow-glowViolet transition disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto ${
+            className={`w-full rounded-lg px-4 py-2.5 text-sm font-medium text-white shadow-glowViolet transition disabled:cursor-not-allowed disabled:opacity-100 sm:w-auto ${
               destructive ? "bg-state-rose hover:bg-state-rose/85" : "bg-brand-violet hover:bg-brand-violetDim"
             }`}
           >

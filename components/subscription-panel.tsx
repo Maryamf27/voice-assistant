@@ -51,7 +51,7 @@ export function SubscriptionPanel({ subscription, isPremium }: { subscription: U
         {subscription?.endsAt && <div><dt className="text-ink-faint">Access through</dt><dd className="mt-1 text-ink-primary">{new Date(subscription.endsAt).toLocaleDateString()}</dd></div>}
       </dl>
       {message && <p role="status" className="mt-5 rounded-lg border border-base-border bg-base-surface p-3 text-sm text-ink-muted">{message}</p>}
-      <button type="button" onClick={cancelSubscription} disabled={pending || !subscription?.subscriptionId} className="mt-6 rounded-lg border border-state-rose/40 px-4 py-2.5 text-sm font-semibold text-state-rose transition hover:bg-state-rose/10 disabled:cursor-not-allowed disabled:opacity-50">{pending ? "Cancelling…" : "Cancel subscription"}</button>
+      <button type="button" onClick={cancelSubscription} disabled={pending || !subscription?.subscriptionId} className="mt-6 rounded-lg border border-state-rose/40 px-4 py-2.5 text-sm font-semibold text-state-rose transition hover:bg-state-rose/10 disabled:cursor-not-allowed disabled:opacity-100">{pending ? "Cancelling…" : "Cancel subscription"}</button>
     </section>
   );
 }

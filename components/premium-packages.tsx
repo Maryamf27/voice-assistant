@@ -69,7 +69,7 @@ export function PremiumPackages({ packages, isPremium, subscribedVariantId }: { 
                 type="button"
                 disabled={pending !== null || !item.variantId || isPremium}
                 onClick={() => startCheckout(item.id)}
-                className="mt-7 w-full rounded-lg bg-brand-violet px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-violetDim disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-7 w-full rounded-lg bg-brand-violet px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-violetDim disabled:cursor-not-allowed disabled:opacity-100"
               >
                 {isSubscribedPackage ? "Subscribed" : isPremium ? "Current plan" : isPending ? "Starting checkout…" : item.variantId ? `Subscribe ${isYearly ? "Yearly" : "Monthly"}` : "Not configured"}
               </button>

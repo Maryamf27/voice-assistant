@@ -119,12 +119,12 @@ export function Equalizer({ label, size = "md" }: { label?: string; size?: "sm" 
         {heights.map((h, i) => (
           <span
             key={i}
-            className={`${barWidth} origin-bottom rounded-full bg-brand-violet ${anims[i]}`}
+            className={`${barWidth} origin-bottom rounded-full bg-current text-white ${anims[i]}`}
             style={{ height: h }}
           />
         ))}
       </span>
-      {label && <span className="text-sm text-ink-muted">{label}</span>}
+      {label && <span className="text-sm text-current">{label}</span>}
     </span>
   );
 }

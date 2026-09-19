@@ -142,7 +142,7 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
           type="button"
           onClick={handleGenerate}
           disabled={loading || !text.trim() || (characterLimit !== null && text.trim().length > characterLimit)}
-          className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl bg-brand-violet px-4 py-3 text-sm font-medium text-white shadow-glowViolet transition hover:bg-brand-violetDim disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl bg-brand-violet px-4 py-3 text-sm font-medium text-white shadow-glowViolet transition hover:bg-brand-violetDim disabled:cursor-not-allowed disabled:opacity-100"
         >
           {loading ? <Equalizer label="Generating…" size="sm" /> : "Generate audio"}
         </button>
@@ -764,7 +764,7 @@ export function CloneForm() {
         type="button"
         onClick={() => void handleClone()}
         disabled={loading || recording || !file}
-        className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl bg-brand-violet px-4 py-3 text-sm font-medium text-white shadow-glowViolet transition hover:bg-brand-violetDim disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl bg-brand-violet px-4 py-3 text-sm font-medium text-white shadow-glowViolet transition hover:bg-brand-violetDim disabled:cursor-not-allowed disabled:opacity-100"
       >
           {loading ? <Equalizer label="Cloning your voice…" size="sm" /> : "Clone voice"}
       </button>
@@ -885,7 +885,7 @@ export function DesignForm() {
           type="button"
           onClick={handleGenerate}
           disabled={loading || !instruction.trim()}
-          className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl bg-brand-violet px-4 py-3 text-sm font-medium text-white shadow-glowViolet transition hover:bg-brand-violetDim disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-xl bg-brand-violet px-4 py-3 text-sm font-medium text-white shadow-glowViolet transition hover:bg-brand-violetDim disabled:cursor-not-allowed disabled:opacity-100"
         >
           {loading ? <Equalizer label="Designing…" size="sm" /> : "Generate voice candidates"}
         </button>
@@ -997,7 +997,7 @@ function DesignCandidateCard({ candidate, onSaved }: { candidate: VoiceCandidate
           type="button"
           onClick={handleSave}
           disabled={saving || saved || !name.trim()}
-          className="shrink-0 rounded-lg bg-brand-violet px-3 py-2 text-xs font-medium text-white transition hover:bg-brand-violetDim disabled:cursor-not-allowed disabled:opacity-60"
+          className="shrink-0 rounded-lg bg-brand-violet px-3 py-2 text-xs font-medium text-white transition hover:bg-brand-violetDim disabled:cursor-not-allowed disabled:opacity-100"
         >
           {saved ? "Saved" : saving ? "Saving…" : "Use this voice"}
         </button>

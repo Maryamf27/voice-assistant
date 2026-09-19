@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { verifyLemonSqueezyWebhook } from "@/lib/payment-provider";
+import { resolvePremiumPackageId, verifyLemonSqueezyWebhook } from "@/lib/payment-provider";
 import type { Database } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
@@ -18,6 +18,10 @@ type LemonSqueezyEvent = {
       ends_at?: string | null;
       user_email?: string | null;
       user_name?: string | null;
+      variant_id?: number | string | null;
+    };
+    relationships?: {
+      variant?: { data?: { id?: string | null } };
     };
   };
 };
@@ -97,17 +101,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true, ignored: "stale_subscription_event" });
     }
 
+    const variantId = event.data?.attributes?.variant_id != null
+      ? String(event.data.attributes.variant_id)
+      : event.data?.relationships?.variant?.data?.id ?? null;
+    const packageId = resolvePremiumPackageId({
+      variantId,
+      packageId: event.meta?.custom_data?.package_id,
+    });
+
     const update = grantsAccess
       ? {
           plan: "premium" as const,
           subscription_status: "active" as const,
           lemonsqueezy_subscription_id: event.data?.id ?? null,
           lemonsqueezy_customer_id: attributes?.customer_id ? String(attributes.customer_id) : null,
+          lemonsqueezy_variant_id: variantId,
+          premium_package_id: packageId,
           subscription_ends_at: attributes?.ends_at ?? null,
         }
       : {
           plan: "free" as const,
           subscription_status: "inactive" as const,
+          lemonsqueezy_variant_id: null,
+          premium_package_id: null,
           subscription_ends_at: attributes?.ends_at ?? null,
         };
     const { error } = await supabase.from("profiles").update(update).eq("id", resolvedUserId);

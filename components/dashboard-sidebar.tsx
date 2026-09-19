@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import { LogoutButton } from "@/components/logout-button";
+import { usePrefetchLibrary } from "@/components/voice-queries";
 import {
   IconHome,
   IconTag,
@@ -81,6 +82,17 @@ function Navigation({
   libraryHref: string;
   onNavigate: () => void;
 }) {
+  const prefetchLibrary = usePrefetchLibrary();
+  const pendingPrefetch = useRef<number | null>(null);
+
+  function scheduleLibraryPrefetch() {
+    if (pendingPrefetch.current !== null) return;
+    pendingPrefetch.current = window.setTimeout(() => {
+      pendingPrefetch.current = null;
+      void prefetchLibrary({ query: "" });
+    }, 90);
+  }
+
   return (
     <nav className="space-y-6">
       <div>
@@ -108,13 +120,17 @@ function Navigation({
             {section.links.map((link) => {
               const active = path === link.href;
               const Icon = link.icon;
-              const href = link.href === "/dashboard/library" ? libraryHref : link.href;
+              const isLibrary = link.href === "/dashboard/library";
+              const href = isLibrary ? libraryHref : link.href;
 
               return (
                 <Link
                   key={link.href}
                   href={href}
                   onClick={onNavigate}
+                  onMouseEnter={isLibrary ? scheduleLibraryPrefetch : undefined}
+                  onMouseMove={isLibrary ? scheduleLibraryPrefetch : undefined}
+                  onFocus={isLibrary ? scheduleLibraryPrefetch : undefined}
                   className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition ${
                     active
                       ? "bg-brand-violet/15 font-medium text-brand-violetSoft"

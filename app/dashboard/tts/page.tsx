@@ -37,7 +37,7 @@ export default async function TtsPage({ searchParams }: { searchParams: Promise<
         title="Text to Speech"
         description="Write your script, select a voice, and generate audio."
       />
-      <TtsForm voices={voices} model={model} initialVoiceId={initialVoiceId} characterLimit={getTTSCharacterLimit(access.plan)} />
+      <TtsForm voices={voices} model={model} initialVoiceId={initialVoiceId} characterLimit={getTTSCharacterLimit(access.plan)} userId={user?.id ?? null} />
     </>
   );
 }

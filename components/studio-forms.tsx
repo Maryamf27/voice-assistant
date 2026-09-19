@@ -1,17 +1,32 @@
 "use client";
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Card, ProviderUnavailableNotice, Equalizer, Waveform } from "@/components/ui";
 import { Select } from "@/components/select";
 import { IconUpload, IconCheck, IconAlert, IconWaveform, IconMic, IconSparkle, IconLibrary, IconVoices, IconChevronRight } from "@/components/icons";
 import { AudioPlayer } from "@/components/audio-playback";
 import { FREE_TTS_CHARACTER_LIMIT, MAX_TTS_REQUEST_LENGTH } from "@/lib/entitlement-constants";
+import { useMyVoices, useInvalidateMyVoices, type MyVoice } from "@/components/voice-queries";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const MAX_TEXT_LENGTH = MAX_TTS_REQUEST_LENGTH;
 
 type TtsVoiceOption = { id: string; name: string; type: string };
 type MobileTab = "library" | "my";
-export function TtsForm({ voices = [], model = null, initialVoiceId = "", characterLimit = FREE_TTS_CHARACTER_LIMIT }: { voices?: TtsVoiceOption[]; model?: string | null; initialVoiceId?: string; characterLimit?: number | null }) {
+
+async function getTtsUserId(): Promise<string | null> {
+  try {
+    const supabase = createSupabaseBrowserClient();
+    const { data } = await supabase.auth.getUser();
+    return data.user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function TtsForm({ voices = [], model = null, initialVoiceId = "", characterLimit = FREE_TTS_CHARACTER_LIMIT, userId }: { voices?: TtsVoiceOption[]; model?: string | null; initialVoiceId?: string; characterLimit?: number | null; userId?: string | null }) {
+  const [resolvedUserId, setResolvedUserId] = useState<string | null | undefined>(userId);
+  const { data: fetchedMyVoices, isFetching: isMyVoicesFetching } = useMyVoices(resolvedUserId ?? null);
   const [text, setText] = useState("");
   const [voiceId, setVoiceId] = useState(initialVoiceId);
   const [myVoicesOpen, setMyVoicesOpen] = useState(false);
@@ -22,9 +37,37 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
   const [audioUrl, setAudioUrl] = useState("");
   const resultRef = useRef<HTMLDivElement>(null);
 
-  const libraryVoices = voices.filter(voice => voice.type === "library");
-  const myVoices = voices.filter(voice => voice.type === "personal");
-  const selectedVoice = voices.find(v => v.id === voiceId);
+  useEffect(() => {
+    if (resolvedUserId !== undefined) return;
+    let cancelled = false;
+    getTtsUserId().then((uid) => {
+      if (!cancelled) setResolvedUserId(uid);
+    });
+    return () => { cancelled = true; };
+  }, [resolvedUserId]);
+
+  useEffect(() => {
+    if (!initialVoiceId) return;
+    setVoiceId(initialVoiceId);
+  }, [initialVoiceId]);
+
+  const combinedVoices = useMemo<TtsVoiceOption[]>(() => {
+    const merged = new Map<string, TtsVoiceOption>();
+    for (const v of voices) merged.set(`${v.type}:${v.id}`, { id: v.id, name: v.name, type: v.type });
+    if (fetchedMyVoices) {
+      for (const v of fetchedMyVoices as MyVoice[]) {
+        if (v.type === "personal" || v.type === "library" || v.type === "designed") {
+          merged.set(`${v.type}:${v.id}`, { id: v.id, name: v.name, type: v.type });
+        }
+      }
+    }
+    return Array.from(merged.values());
+  }, [voices, fetchedMyVoices]);
+
+  const libraryVoices = combinedVoices.filter(voice => voice.type === "library");
+  const myVoices = combinedVoices.filter(voice => voice.type === "personal");
+  const selectedVoice = combinedVoices.find(v => v.id === voiceId);
+  void isMyVoicesFetching;
 
   useEffect(() => {
     if (audioUrl) resultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -136,7 +179,7 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
                 <p className="flex items-center gap-1.5 text-xs text-audio-mint">
                   <IconCheck className="h-3.5 w-3.5" />
                   Generation complete.
-                </p>
+                </p>,
               </div>
             )}
             {!loading && !audioUrl && (
@@ -390,6 +433,7 @@ type SpeechListener = {
 
 export function CloneForm() {
   const router = useRouter();
+  const invalidateMyVoices = useInvalidateMyVoices();
   const input = useRef<HTMLInputElement>(null);
   const recorder = useRef<MediaRecorder | null>(null);
   const stream = useRef<MediaStream | null>(null);
@@ -624,6 +668,13 @@ export function CloneForm() {
       setName("");
       setFile(null);
       if (input.current) input.current.value = "";
+      try {
+        const uid = await getTtsUserId();
+        if (uid) await invalidateMyVoices(uid);
+      } catch {
+        /* Best-effort invalidation; next TTS mount will refetch via useMyVoices enabled after auth. */
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1750));
       router.push(`/dashboard/tts?voice=${encodeURIComponent(cloned.id)}`);
     } catch {
       setError("A network error occurred. Please check your connection and try again.");
@@ -872,6 +923,7 @@ export function DesignForm() {
 }
 
 function DesignCandidateCard({ candidate, onSaved }: { candidate: VoiceCandidate; onSaved: () => void }) {
+  const invalidateMyVoices = useInvalidateMyVoices();
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -903,9 +955,17 @@ function DesignCandidateCard({ candidate, onSaved }: { candidate: VoiceCandidate
       }
 
       setSaved(true);
+      try {
+        const uid = await getTtsUserId();
+        if (uid) await invalidateMyVoices(uid);
+      } catch {
+        /* Best-effort invalidation. */
+      }
       onSaved();
     } catch {
       setError("A network error occurred. Please check your connection and try again.");
+    } finally {
+      setSaving(false);
     }
   }
 

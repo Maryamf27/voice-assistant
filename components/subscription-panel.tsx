@@ -1,22 +1,27 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ConfirmDialog } from "@/components/dialog";
 import type { UserSubscription } from "@/lib/supabase/types";
 
 export function SubscriptionPanel({ subscription, isPremium }: { subscription: UserSubscription | null; isPremium: boolean }) {
+  const router = useRouter();
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   async function cancelSubscription() {
-    if (!window.confirm("Cancel your subscription? Premium access will remain until the current billing period ends.")) return;
     setPending(true);
     setMessage("");
     try {
       const response = await fetch("/api/billing/cancel", { method: "POST" });
       const result = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(result.error ?? "Unable to cancel subscription.");
+      setConfirmOpen(false);
       setMessage("Cancellation requested. Premium access remains active until the billing period ends.");
+      router.refresh();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to cancel subscription.");
     } finally {
@@ -51,7 +56,17 @@ export function SubscriptionPanel({ subscription, isPremium }: { subscription: U
         {subscription?.endsAt && <div><dt className="text-ink-faint">Access through</dt><dd className="mt-1 text-ink-primary">{new Date(subscription.endsAt).toLocaleDateString()}</dd></div>}
       </dl>
       {message && <p role="status" className="mt-5 rounded-lg border border-base-border bg-base-surface p-3 text-sm text-ink-muted">{message}</p>}
-      <button type="button" onClick={cancelSubscription} disabled={pending || !subscription?.subscriptionId} className="mt-6 rounded-lg border border-state-rose/40 px-4 py-2.5 text-sm font-semibold text-state-rose transition hover:bg-state-rose/10 disabled:cursor-not-allowed disabled:opacity-100">{pending ? "Cancelling…" : "Cancel subscription"}</button>
+      <button type="button" onClick={() => setConfirmOpen(true)} disabled={pending || !subscription?.subscriptionId} className="mt-6 rounded-lg border border-state-rose/40 px-4 py-2.5 text-sm font-semibold text-state-rose transition hover:bg-state-rose/10 disabled:cursor-not-allowed disabled:opacity-100">Cancel subscription</button>
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Cancel subscription"
+        description="Are you sure you want to cancel your subscription? Your Premium access will remain until the current billing period ends."
+        confirmLabel="Cancel subscription"
+        cancelLabel="Keep Premium"
+        loading={pending}
+        onConfirm={cancelSubscription}
+        onCancel={() => { if (!pending) setConfirmOpen(false); }}
+      />
     </section>
   );
 }

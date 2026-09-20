@@ -49,6 +49,7 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
 
   useEffect(() => {
     if (!initialVoiceId) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Sync server-selected voice after navigation.
     setVoiceId(initialVoiceId);
   }, [initialVoiceId]);
 

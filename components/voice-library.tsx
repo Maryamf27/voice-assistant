@@ -6,7 +6,6 @@ import { IconSearch, IconCheck, IconTag, IconAlert } from "@/components/icons";
 import { AudioPlayer } from "@/components/audio-playback";
 import {
   useLibraryVoices,
-  useInvalidateMyVoices,
   type LibraryVoice as LibraryVoiceItem,
 } from "@/components/voice-queries";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -28,7 +27,6 @@ export function VoiceLibrary() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const urlQuery = searchParams.get("search") ?? "";
-  const invalidateMyVoices = useInvalidateMyVoices();
   const [query, setQuery] = useState(urlQuery);
   const debouncedQuery = useDebouncedValue(query, SEARCH_DEBOUNCE_MS);
   const normalizedQuery = debouncedQuery.trim();
@@ -62,6 +60,7 @@ export function VoiceLibrary() {
   }, [normalizedQuery, pathname, router, searchParams, urlQuery]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Sync search state with browser navigation.
     setQuery((current) => (current === urlQuery ? current : urlQuery));
   }, [urlQuery]);
 

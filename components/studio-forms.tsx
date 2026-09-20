@@ -193,8 +193,8 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
           </Card>
         </div>
       </Card>
-      <aside className="space-y-6">
-        <Card className="p-5">
+      <aside>
+        <Card className="p-4 sm:p-5">
           <h2 className="font-medium text-ink-primary">Voice</h2>
           {selectedVoice && (
             <div className="mt-4 rounded-xl border border-brand-violet/30 bg-brand-violet/10 px-3.5 py-2.5">
@@ -222,11 +222,11 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
                     <IconLibrary className="h-4 w-4 text-brand-violetSoft" />
                     <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted">Voice Library</span>
                   </div>
-                  <div className="max-h-64 overflow-y-auto p-2">
+                  <div className="max-h-48 overflow-y-auto p-2">
                     <button
                       type="button"
                       onClick={() => setVoiceId("")}
-                      className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                      className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition ${
                         voiceId === "" ? "bg-brand-violet/15 text-brand-violetSoft" : "text-ink-muted hover:bg-base-surface hover:text-ink-primary"
                       }`}
                     >
@@ -244,7 +244,7 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
                           key={voice.id}
                           type="button"
                           onClick={() => setVoiceId(voice.id)}
-                          className={`mt-1 flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                          className={`mt-1 flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition ${
                             voiceId === voice.id ? "bg-brand-violet/15 text-brand-violetSoft" : "text-ink-muted hover:bg-base-surface hover:text-ink-primary"
                           }`}
                         >
@@ -272,7 +272,7 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
                     </span>
                     <IconChevronRight className={`h-3.5 w-3.5 shrink-0 transition-transform ${myVoicesOpen ? "rotate-90 text-audio-mint" : "text-ink-faint"}`} />
                   </button>
-                  <div className="flex-1 max-h-64 overflow-y-auto p-2">
+                  <div className="flex-1 max-h-48 overflow-y-auto p-2">
                     {!myVoicesOpen ? (
                       <button
                         type="button"
@@ -296,7 +296,7 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
                           key={voice.id}
                           type="button"
                           onClick={() => setVoiceId(voice.id)}
-                          className={`mt-1 flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                          className={`mt-1 flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition ${
                             voiceId === voice.id ? "bg-audio-mint/15 text-audio-mint" : "text-ink-muted hover:bg-base-surface hover:text-ink-primary"
                           }`}
                         >
@@ -343,7 +343,7 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
                     <button
                       type="button"
                       onClick={() => setVoiceId("")}
-                      className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                      className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition ${
                         voiceId === "" ? "bg-brand-violet/15 text-brand-violetSoft" : "text-ink-muted hover:bg-base-surface hover:text-ink-primary"
                       }`}
                     >
@@ -361,7 +361,7 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
                           key={voice.id}
                           type="button"
                           onClick={() => setVoiceId(voice.id)}
-                          className={`mt-1 flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                          className={`mt-1 flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition ${
                             voiceId === voice.id ? "bg-brand-violet/15 text-brand-violetSoft" : "text-ink-muted hover:bg-base-surface hover:text-ink-primary"
                           }`}
                         >
@@ -388,7 +388,7 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
                           key={voice.id}
                           type="button"
                           onClick={() => setVoiceId(voice.id)}
-                          className={`mt-1 flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                          className={`mt-1 flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition ${
                             voiceId === voice.id ? "bg-audio-mint/15 text-audio-mint" : "text-ink-muted hover:bg-base-surface hover:text-ink-primary"
                           }`}
                         >
@@ -408,13 +408,6 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
           <p className="mt-3 text-xs leading-5 text-ink-faint">
             {voices.length > 0 ? "Your saved and authorized voices are available here." : "Your saved and authorized voices will appear here once ready for text-to-speech."}
           </p>
-        </Card>
-        <Card className="p-5">
-          <h2 className="font-medium text-ink-primary">Model</h2>
-          <div className="mt-4 rounded-xl border border-brand-violet/30 bg-brand-violet/10 p-3">
-            <p className="text-sm font-medium text-brand-violetSoft">{model ?? "Not configured"}</p>
-            <p className="mt-1 text-xs text-brand-violetSoft/70">{model ? "Selected automatically for this workspace." : "Set FISH_TTS_MODEL on the server to enable generation."}</p>
-          </div>
         </Card>
       </aside>
     </div>

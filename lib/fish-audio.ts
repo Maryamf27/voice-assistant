@@ -4,6 +4,42 @@ const FISH_VOICE_DESIGN_URL = "https://api.fish.audio/v1/voice-design";
 
 export class FishAudioError extends Error { constructor(message: string, public readonly status: number) { super(message); } }
 
+type SearchCacheKey = string;
+type SearchCacheEntry = { value: VoiceSearchResult; expiresAt: number };
+const SEARCH_CACHE_TTL_MS = 5 * 60 * 1000;
+const SEARCH_CACHE_MAX_ENTRIES = 128;
+const searchCache = new Map<SearchCacheKey, SearchCacheEntry>();
+
+function searchCacheKey({
+  query,
+  language,
+  page,
+  pageSize,
+}: Required<Omit<VoiceSearchQuery, "query" | "language">> &
+  Pick<VoiceSearchQuery, "query" | "language">): SearchCacheKey {
+  return [
+    `q:${(query ?? "").trim().toLowerCase()}`,
+    `l:${language ?? ""}`,
+    `p:${page}`,
+    `ps:${pageSize}`,
+  ].join("|");
+}
+
+function pruneSearchCache() {
+  if (searchCache.size <= SEARCH_CACHE_MAX_ENTRIES) return;
+  const now = Date.now();
+  for (const [key, entry] of searchCache) {
+    if (entry.expiresAt <= now) searchCache.delete(key);
+  }
+  if (searchCache.size <= SEARCH_CACHE_MAX_ENTRIES) return;
+  const keys = searchCache.keys();
+  while (searchCache.size > SEARCH_CACHE_MAX_ENTRIES) {
+    const next = keys.next();
+    if (next.done) break;
+    searchCache.delete(next.value);
+  }
+}
+
 export function isProviderCreditError(error: unknown): boolean {
   return error instanceof FishAudioError && error.status === 402;
 }
@@ -196,12 +232,21 @@ function isEligibleForLibrary(model: RawModelEntity): boolean {
 }
 
 export async function searchVoices({ query, language, page = 1, pageSize = 12 }: VoiceSearchQuery): Promise<VoiceSearchResult> {
+  const effectivePage = page;
+  const effectivePageSize = pageSize;
+  const cacheKey = searchCacheKey({ query, language, page: effectivePage, pageSize: effectivePageSize });
+  const cachedEntry = searchCache.get(cacheKey);
+  const now = Date.now();
+  if (cachedEntry && cachedEntry.expiresAt > now) {
+    return cachedEntry.value;
+  }
+
   const apiKey = process.env.FISH_API_KEY;
   if (!apiKey) throw new FishAudioError("Voice library search is not configured on this server.", 500);
 
   const params = new URLSearchParams();
-  params.set("page_size", String(pageSize));
-  params.set("page_number", String(page));
+  params.set("page_size", String(effectivePageSize));
+  params.set("page_number", String(effectivePage));
   params.set("self", "false");
   if (query) params.set("title", query);
   if (language) params.set("language", language);
@@ -221,8 +266,12 @@ export async function searchVoices({ query, language, page = 1, pageSize = 12 }:
 
   const body = await response.json() as RawModelListResponse;
   const voices = (body.items ?? []).filter(isEligibleForLibrary).map(normalizeLibraryVoice);
+  const result: VoiceSearchResult = { voices, total: body.total ?? voices.length, hasMore: Boolean(body.has_more) };
 
-  return { voices, total: body.total ?? voices.length, hasMore: Boolean(body.has_more) };
+  pruneSearchCache();
+  searchCache.set(cacheKey, { value: result, expiresAt: Date.now() + SEARCH_CACHE_TTL_MS });
+
+  return result;
 }
 
 export async function getPublicLibraryVoice(fishReferenceId: string): Promise<LibraryVoice | null> {

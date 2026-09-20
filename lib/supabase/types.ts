@@ -2,6 +2,7 @@ export type VoiceType = "personal" | "designed" | "library";
 export type GenerationStatus = "pending" | "processing" | "completed" | "failed";
 export type Plan = "free" | "premium";
 export type SubscriptionStatus = "inactive" | "active";
+export type PremiumPackageId = "monthly" | "yearly";
 
 export type UserSubscription = {
   plan: Plan;
@@ -9,6 +10,8 @@ export type UserSubscription = {
   subscriptionId: string | null;
   customerId: string | null;
   endsAt: string | null;
+  variantId: string | null;
+  packageId: PremiumPackageId | null;
 };
 
 export type Database = {
@@ -29,6 +32,8 @@ export type Database = {
           subscription_status: SubscriptionStatus;
           lemonsqueezy_subscription_id: string | null;
           lemonsqueezy_customer_id: string | null;
+          lemonsqueezy_variant_id: string | null;
+          premium_package_id: PremiumPackageId | null;
           subscription_ends_at: string | null;
           created_at: string;
           updated_at: string;
@@ -41,9 +46,11 @@ export type Database = {
           subscription_status?: SubscriptionStatus;
           lemonsqueezy_subscription_id?: string | null;
           lemonsqueezy_customer_id?: string | null;
+          lemonsqueezy_variant_id?: string | null;
+          premium_package_id?: PremiumPackageId | null;
           subscription_ends_at?: string | null;
         };
-        Update: Partial<{ name: string; email: string | null; plan: Plan; subscription_status: SubscriptionStatus; lemonsqueezy_subscription_id: string | null; lemonsqueezy_customer_id: string | null; subscription_ends_at: string | null; updated_at: string }>;
+        Update: Partial<{ name: string; email: string | null; plan: Plan; subscription_status: SubscriptionStatus; lemonsqueezy_subscription_id: string | null; lemonsqueezy_customer_id: string | null; lemonsqueezy_variant_id: string | null; premium_package_id: PremiumPackageId | null; subscription_ends_at: string | null; updated_at: string }>;
         Relationships: [];
       };
       voices: {

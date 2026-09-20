@@ -1,12 +1,23 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/dialog";
 import { IconTrash, IconArrowRight } from "@/components/icons";
+import { useInvalidateMyVoices } from "@/components/voice-queries";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+
+async function getActionsUserId(): Promise<string | null> {
+  try {
+    const supabase = createSupabaseBrowserClient();
+    const { data } = await supabase.auth.getUser();
+    return data.user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export function VoiceCardActions({ voiceId, readyForTts }: { voiceId: string; readyForTts: boolean }) {
-  const router = useRouter();
+  const invalidateMyVoices = useInvalidateMyVoices();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
@@ -25,7 +36,14 @@ export function VoiceCardActions({ voiceId, readyForTts }: { voiceId: string; re
         setConfirmOpen(false);
         return;
       }
-      router.refresh();
+      try {
+        const uid = await getActionsUserId();
+        if (uid) await invalidateMyVoices(uid);
+      } catch {
+        /* Best-effort invalidation. */
+      }
+      setConfirmOpen(false);
+      setDeleting(false);
     } catch {
       setError("A network error occurred. Please try again.");
       setDeleting(false);

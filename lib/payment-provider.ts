@@ -1,41 +1,119 @@
 import crypto from "node:crypto";
+import type { PremiumPackageId, UserSubscription } from "@/lib/supabase/types";
 
-export type PremiumPackageId = "monthly" | "yearly";
+export type { PremiumPackageId };
+
+const PREMIUM_BENEFITS = [
+  "Unlimited Text-to-Speech generation",
+  "Premium voice workspace",
+  "Voice cloning",
+  "Full premium access",
+  "No ads",
+];
 
 export type PremiumPackage = {
   id: PremiumPackageId;
   name: string;
+  intervalLabel: string;
+  priceAmount: number;
+  currency: string;
   priceLabel: string;
   billingPeriod: string;
   description: string;
   benefits: string[];
   variantId: string | null;
+  featured?: boolean;
+};
+
+export type PublicPremiumPackage = Omit<PremiumPackage, "variantId"> & {
+  isConfigured: boolean;
 };
 
 // Keep customer-facing package details in one place so pricing changes are deliberate.
+// Display amounts are product copy only; Lemon Squeezy still charges the variant price.
 export const PREMIUM_PACKAGES: PremiumPackage[] = [
   {
     id: "monthly",
     name: "Premium Monthly",
-    priceLabel: "PKR 140",
-    billingPeriod: "/ month",
-    description: "Flexible access for month-to-month voice creation.",
-    benefits: ["Unrestricted Text to Speech generation", "Premium voice workspace", "Verified subscription access"],
+    intervalLabel: "MONTHLY",
+    priceAmount: 799,
+    currency: "PKR",
+    priceLabel: "PKR 799",
+    billingPeriod: "/month",
+    description: "Flexible premium access with monthly billing.",
+    benefits: PREMIUM_BENEFITS,
     variantId: process.env.LEMON_SQUEEZY_MONTHLY_VARIANT_ID ?? null,
   },
   {
     id: "yearly",
     name: "Premium Yearly",
-    priceLabel: "PKR 140",
-    billingPeriod: "/ year",
-    description: "Premium access with yearly billing for your voice workflow.",
-    benefits: ["Unrestricted Text to Speech generation", "Premium voice workspace", "Verified subscription access"],
+    intervalLabel: "YEARLY",
+    priceAmount: 7999,
+    currency: "PKR",
+    priceLabel: "PKR 7,999",
+    billingPeriod: "/year",
+    description: "Premium access with yearly billing.",
+    benefits: PREMIUM_BENEFITS,
     variantId: process.env.LEMON_SQUEEZY_YEARLY_VARIANT_ID ?? null,
+    featured: true,
   },
 ];
 
 export function getPremiumPackage(id: string): PremiumPackage | null {
   return PREMIUM_PACKAGES.find((item) => item.id === id) ?? null;
+}
+
+export function getPublicPremiumPackages(): PublicPremiumPackage[] {
+  return PREMIUM_PACKAGES.map(({ variantId, ...item }) => ({
+    ...item,
+    isConfigured: Boolean(variantId),
+  }));
+}
+
+export function formatPkrAmount(amount: number): string {
+  return `PKR ${amount.toLocaleString("en-US")}`;
+}
+
+export function getYearlySavingsMessage(packages: Array<Pick<PremiumPackage, "id" | "priceAmount">> = PREMIUM_PACKAGES): string | null {
+  const monthly = packages.find((item) => item.id === "monthly");
+  const yearly = packages.find((item) => item.id === "yearly");
+  if (!monthly || !yearly) return null;
+
+  const billedAsMonthly = monthly.priceAmount * 12;
+  const saved = billedAsMonthly - yearly.priceAmount;
+  if (saved <= 0) return "Save vs monthly billing";
+
+  const percent = Math.round((saved / billedAsMonthly) * 100);
+  if (percent > 0) return `Save ${percent}% vs monthly billing`;
+  return `Save ${formatPkrAmount(saved)} vs monthly billing`;
+}
+
+export function resolvePremiumPackageId({
+  variantId,
+  packageId,
+}: {
+  variantId?: string | number | null;
+  packageId?: string | null;
+}): PremiumPackageId | null {
+  if (packageId === "monthly" || packageId === "yearly") return packageId;
+
+  if (variantId == null || variantId === "") return null;
+  const normalizedVariantId = String(variantId);
+  const matches = PREMIUM_PACKAGES.filter((item) => item.variantId && item.variantId === normalizedVariantId);
+  return matches.length === 1 ? matches[0].id : null;
+}
+
+export async function resolveActivePremiumPackageId(subscription: UserSubscription | null): Promise<PremiumPackageId | null> {
+  if (!subscription || subscription.plan !== "premium" || subscription.subscriptionStatus !== "active") return null;
+
+  const stored = resolvePremiumPackageId({
+    variantId: subscription.variantId,
+    packageId: subscription.packageId,
+  });
+  if (stored) return stored;
+
+  const liveVariantId = await getSubscriptionVariantId(subscription.subscriptionId);
+  return resolvePremiumPackageId({ variantId: liveVariantId });
 }
 
 function requiredEnv(name: string): string {
@@ -65,7 +143,7 @@ export async function createPremiumCheckout({
       type: "checkouts",
       attributes: {
         product_options: {
-          redirect_url: `${appUrl}/dashboard?checkout=success`,
+          redirect_url: `${appUrl}/dashboard/premium?checkout=success`,
         },
         checkout_data: {
           custom: {

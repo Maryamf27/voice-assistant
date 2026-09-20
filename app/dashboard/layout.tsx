@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getUserSubscription } from "@/lib/entitlements";
 import { DashboardRevalidator } from "@/components/dashboard-revalidator";
 import { AdProvider } from "@/components/ads/ad-provider";
+import { ReactQueryProvider } from "@/components/react-query-provider";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -16,6 +17,7 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
   const isPremium = subscription?.plan === "premium" && subscription.subscriptionStatus === "active";
   return (
     <AdProvider isPremium={isPremium}>
+    <ReactQueryProvider>
     <div className="h-screen overflow-hidden bg-base-bg md:flex">
       <DashboardRevalidator />
       <DashboardSidebar isPremium={isPremium} />
@@ -40,6 +42,7 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
         </main>
       </div>
     </div>
+    </ReactQueryProvider>
     </AdProvider>
   );
 }

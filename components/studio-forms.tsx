@@ -1,24 +1,74 @@
 "use client";
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Card, ProviderUnavailableNotice, Equalizer, Waveform } from "@/components/ui";
 import { Select } from "@/components/select";
-import { IconUpload, IconCheck, IconAlert, IconWaveform, IconMic, IconSparkle, IconLibrary } from "@/components/icons";
+import { IconUpload, IconCheck, IconAlert, IconWaveform, IconMic, IconSparkle, IconLibrary, IconVoices, IconChevronRight } from "@/components/icons";
 import { AudioPlayer } from "@/components/audio-playback";
 import { FREE_TTS_CHARACTER_LIMIT, MAX_TTS_REQUEST_LENGTH } from "@/lib/entitlement-constants";
 import { AdSlot } from "@/components/ads/ad-slot";
+import { useMyVoices, useInvalidateMyVoices, type MyVoice } from "@/components/voice-queries";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const MAX_TEXT_LENGTH = MAX_TTS_REQUEST_LENGTH;
 
 type TtsVoiceOption = { id: string; name: string; type: string };
-export function TtsForm({ voices = [], model = null, initialVoiceId = "", characterLimit = FREE_TTS_CHARACTER_LIMIT }: { voices?: TtsVoiceOption[]; model?: string | null; initialVoiceId?: string; characterLimit?: number | null }) {
+type MobileTab = "library" | "my";
+
+async function getTtsUserId(): Promise<string | null> {
+  try {
+    const supabase = createSupabaseBrowserClient();
+    const { data } = await supabase.auth.getUser();
+    return data.user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function TtsForm({ voices = [], model = null, initialVoiceId = "", characterLimit = FREE_TTS_CHARACTER_LIMIT, userId }: { voices?: TtsVoiceOption[]; model?: string | null; initialVoiceId?: string; characterLimit?: number | null; userId?: string | null }) {
+  const [resolvedUserId, setResolvedUserId] = useState<string | null | undefined>(userId);
+  const { data: fetchedMyVoices, isFetching: isMyVoicesFetching } = useMyVoices(resolvedUserId ?? null);
   const [text, setText] = useState("");
   const [voiceId, setVoiceId] = useState(initialVoiceId);
+  const [myVoicesOpen, setMyVoicesOpen] = useState(false);
+  const [mobileTab, setMobileTab] = useState<MobileTab>("library");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [unavailable, setUnavailable] = useState("");
   const [audioUrl, setAudioUrl] = useState("");
   const resultRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (resolvedUserId !== undefined) return;
+    let cancelled = false;
+    getTtsUserId().then((uid) => {
+      if (!cancelled) setResolvedUserId(uid);
+    });
+    return () => { cancelled = true; };
+  }, [resolvedUserId]);
+
+  useEffect(() => {
+    if (!initialVoiceId) return;
+    setVoiceId(initialVoiceId);
+  }, [initialVoiceId]);
+
+  const combinedVoices = useMemo<TtsVoiceOption[]>(() => {
+    const merged = new Map<string, TtsVoiceOption>();
+    for (const v of voices) merged.set(`${v.type}:${v.id}`, { id: v.id, name: v.name, type: v.type });
+    if (fetchedMyVoices) {
+      for (const v of fetchedMyVoices as MyVoice[]) {
+        if (v.type === "personal" || v.type === "library" || v.type === "designed") {
+          merged.set(`${v.type}:${v.id}`, { id: v.id, name: v.name, type: v.type });
+        }
+      }
+    }
+    return Array.from(merged.values());
+  }, [voices, fetchedMyVoices]);
+
+  const libraryVoices = combinedVoices.filter(voice => voice.type === "library");
+  const myVoices = combinedVoices.filter(voice => voice.type === "personal");
+  const selectedVoice = combinedVoices.find(v => v.id === voiceId);
+  void isMyVoicesFetching;
 
   useEffect(() => {
     if (audioUrl) resultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -131,7 +181,7 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
                 <p className="flex items-center gap-1.5 text-xs text-audio-mint">
                   <IconCheck className="h-3.5 w-3.5" />
                   Generation complete.
-                </p>
+                </p>,
               </div>
             )}
             {!loading && !audioUrl && (
@@ -145,20 +195,215 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
       <aside className="space-y-6">
         <Card className="p-5">
           <h2 className="font-medium text-ink-primary">Voice</h2>
-          <Select
-            value={voiceId}
-            onChange={setVoiceId}
-            disabled={false}
-            options={[
-              { value: "", label: "Default voice", group: "Voice Library", icon: <IconWaveform className="h-3.5 w-3.5 shrink-0 text-ink-faint" /> },
-              ...(voices.some((voice) => voice.type === "personal")
-                ? voices.filter((voice) => voice.type === "personal").map((voice) => ({ value: voice.id, label: voice.name, group: "My Voices", icon: <IconMic className="h-3.5 w-3.5 shrink-0 text-audio-mint" /> }))
-                : [{ value: "personal-empty", label: "No personal voices yet · Clone or record a voice to see it here.", group: "My Voices", disabled: true, icon: <IconMic className="h-3.5 w-3.5 shrink-0 text-ink-faint" /> }]),
-              ...voices.filter((voice) => voice.type === "library").map((voice) => ({ value: voice.id, label: voice.name, group: "Voice Library", icon: <IconLibrary className="h-3.5 w-3.5 shrink-0 text-brand-violetSoft" /> })),
-            ]}
-            aria-label="Voice"
-            className="mt-4"
-          />
+          {selectedVoice && (
+            <div className="mt-4 rounded-xl border border-brand-violet/30 bg-brand-violet/10 px-3.5 py-2.5">
+              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-brand-violetSoft/70">Selected</p>
+              <p className="mt-1 flex items-center gap-2 text-sm font-medium text-brand-violetSoft">
+                {selectedVoice.type === "personal" ? <IconMic className="h-4 w-4" /> : <IconWaveform className="h-4 w-4" />}
+                {selectedVoice.name}
+              </p>
+            </div>
+          )}
+          {!selectedVoice && (
+            <div className="mt-4 rounded-xl border border-base-border bg-base-bg px-3.5 py-2.5">
+              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-ink-faint">Selected</p>
+              <p className="mt-1 flex items-center gap-2 text-sm font-medium text-ink-muted">
+                <IconWaveform className="h-4 w-4" />
+                Default voice
+              </p>
+            </div>
+          )}
+          <div className="mt-4 hidden sm:block">
+            <div className="overflow-hidden rounded-xl border border-base-border bg-base-bg">
+              <div className="grid grid-cols-2">
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-2 border-b border-base-border px-4 py-3">
+                    <IconLibrary className="h-4 w-4 text-brand-violetSoft" />
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted">Voice Library</span>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto p-2">
+                    <button
+                      type="button"
+                      onClick={() => setVoiceId("")}
+                      className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                        voiceId === "" ? "bg-brand-violet/15 text-brand-violetSoft" : "text-ink-muted hover:bg-base-surface hover:text-ink-primary"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <IconWaveform className="h-3.5 w-3.5 shrink-0" />
+                        Default voice
+                      </span>
+                      {voiceId === "" && <IconCheck className="h-3.5 w-3.5 shrink-0" />}
+                    </button>
+                    {libraryVoices.length === 0 ? (
+                      <p className="px-2.5 py-3 text-xs leading-5 text-ink-faint">No library voices available.</p>
+                    ) : (
+                      libraryVoices.map((voice) => (
+                        <button
+                          key={voice.id}
+                          type="button"
+                          onClick={() => setVoiceId(voice.id)}
+                          className={`mt-1 flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                            voiceId === voice.id ? "bg-brand-violet/15 text-brand-violetSoft" : "text-ink-muted hover:bg-base-surface hover:text-ink-primary"
+                          }`}
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            <IconWaveform className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{voice.name}</span>
+                          </span>
+                          {voiceId === voice.id && <IconCheck className="h-3.5 w-3.5 shrink-0" />}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+                <div className="relative flex flex-col border-l border-base-border">
+                  <button
+                    type="button"
+                    onClick={() => setMyVoicesOpen(!myVoicesOpen)}
+                    className={`flex items-center justify-between gap-2 border-b border-base-border px-4 py-3 text-left transition ${
+                      myVoicesOpen ? "bg-audio-mint/5" : "hover:bg-base-surface"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <IconVoices className={`h-4 w-4 ${myVoicesOpen ? "text-audio-mint" : "text-audio-mint/70"}`} />
+                      <span className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${myVoicesOpen ? "text-audio-mint" : "text-ink-muted"}`}>My Voices</span>
+                    </span>
+                    <IconChevronRight className={`h-3.5 w-3.5 shrink-0 transition-transform ${myVoicesOpen ? "rotate-90 text-audio-mint" : "text-ink-faint"}`} />
+                  </button>
+                  <div className="flex-1 max-h-64 overflow-y-auto p-2">
+                    {!myVoicesOpen ? (
+                      <button
+                        type="button"
+                        onClick={() => setMyVoicesOpen(true)}
+                        className="flex w-full items-center justify-between gap-2 rounded-lg border border-audio-mint/20 bg-audio-mint/[0.03] px-3 py-5 text-left transition hover:bg-audio-mint/[0.06]"
+                      >
+                        <span>
+                          <p className="text-sm font-medium text-audio-mint">My Voices</p>
+                          <p className="mt-0.5 text-xs text-ink-faint">{myVoices.length} saved {myVoices.length === 1 ? "voice" : "voices"}</p>
+                        </span>
+                        <IconChevronRight className="h-4 w-4 shrink-0 text-audio-mint" />
+                      </button>
+                    ) : myVoices.length === 0 ? (
+                      <div className="px-2.5 py-4 text-center">
+                        <p className="text-sm font-medium text-ink-primary">No personal voices yet</p>
+                        <p className="mt-1 text-xs leading-5 text-ink-faint">Clone or record a voice to see it here.</p>
+                      </div>
+                    ) : (
+                      myVoices.map((voice) => (
+                        <button
+                          key={voice.id}
+                          type="button"
+                          onClick={() => setVoiceId(voice.id)}
+                          className={`mt-1 flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                            voiceId === voice.id ? "bg-audio-mint/15 text-audio-mint" : "text-ink-muted hover:bg-base-surface hover:text-ink-primary"
+                          }`}
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            <IconMic className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{voice.name}</span>
+                          </span>
+                          {voiceId === voice.id && <IconCheck className="h-3.5 w-3.5 shrink-0" />}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="mt-4 sm:hidden">
+            <div className="overflow-hidden rounded-xl border border-base-border bg-base-bg">
+              <div className="grid grid-cols-2 border-b border-base-border">
+                <button
+                  type="button"
+                  onClick={() => setMobileTab("library")}
+                  className={`flex items-center justify-center gap-2 px-3 py-3 text-left transition ${
+                    mobileTab === "library" ? "bg-brand-violet/10 border-b-2 border-b-brand-violet" : "hover:bg-base-surface"
+                  }`}
+                >
+                  <IconLibrary className={`h-4 w-4 ${mobileTab === "library" ? "text-brand-violetSoft" : "text-ink-faint"}`} />
+                  <span className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${mobileTab === "library" ? "text-brand-violetSoft" : "text-ink-muted"}`}>Library</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileTab("my")}
+                  className={`flex items-center justify-center gap-2 px-3 py-3 text-left transition ${
+                    mobileTab === "my" ? "bg-audio-mint/10 border-b-2 border-b-audio-mint" : "hover:bg-base-surface"
+                  }`}
+                >
+                  <IconVoices className={`h-4 w-4 ${mobileTab === "my" ? "text-audio-mint" : "text-ink-faint"}`} />
+                  <span className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${mobileTab === "my" ? "text-audio-mint" : "text-ink-muted"}`}>My Voices</span>
+                </button>
+              </div>
+              <div className="max-h-72 overflow-y-auto p-2">
+                {mobileTab === "library" && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setVoiceId("")}
+                      className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                        voiceId === "" ? "bg-brand-violet/15 text-brand-violetSoft" : "text-ink-muted hover:bg-base-surface hover:text-ink-primary"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <IconWaveform className="h-3.5 w-3.5 shrink-0" />
+                        Default voice
+                      </span>
+                      {voiceId === "" && <IconCheck className="h-3.5 w-3.5 shrink-0" />}
+                    </button>
+                    {libraryVoices.length === 0 ? (
+                      <p className="px-2.5 py-3 text-xs leading-5 text-ink-faint">No library voices available.</p>
+                    ) : (
+                      libraryVoices.map((voice) => (
+                        <button
+                          key={voice.id}
+                          type="button"
+                          onClick={() => setVoiceId(voice.id)}
+                          className={`mt-1 flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                            voiceId === voice.id ? "bg-brand-violet/15 text-brand-violetSoft" : "text-ink-muted hover:bg-base-surface hover:text-ink-primary"
+                          }`}
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            <IconWaveform className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{voice.name}</span>
+                          </span>
+                          {voiceId === voice.id && <IconCheck className="h-3.5 w-3.5 shrink-0" />}
+                        </button>
+                      ))
+                    )}
+                  </>
+                )}
+                {mobileTab === "my" && (
+                  <>
+                    {myVoices.length === 0 ? (
+                      <div className="px-2.5 py-6 text-center">
+                        <p className="text-sm font-medium text-ink-primary">No personal voices yet</p>
+                        <p className="mt-1 text-xs leading-5 text-ink-faint">Clone or record a voice to see it here.</p>
+                      </div>
+                    ) : (
+                      myVoices.map((voice) => (
+                        <button
+                          key={voice.id}
+                          type="button"
+                          onClick={() => setVoiceId(voice.id)}
+                          className={`mt-1 flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                            voiceId === voice.id ? "bg-audio-mint/15 text-audio-mint" : "text-ink-muted hover:bg-base-surface hover:text-ink-primary"
+                          }`}
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            <IconMic className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{voice.name}</span>
+                          </span>
+                          {voiceId === voice.id && <IconCheck className="h-3.5 w-3.5 shrink-0" />}
+                        </button>
+                      ))
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
           <p className="mt-3 text-xs leading-5 text-ink-faint">
             {voices.length > 0 ? "Your saved and authorized voices are available here." : "Your saved and authorized voices will appear here once ready for text-to-speech."}
           </p>
@@ -190,6 +435,7 @@ type SpeechListener = {
 
 export function CloneForm() {
   const router = useRouter();
+  const invalidateMyVoices = useInvalidateMyVoices();
   const input = useRef<HTMLInputElement>(null);
   const recorder = useRef<MediaRecorder | null>(null);
   const stream = useRef<MediaStream | null>(null);
@@ -424,6 +670,13 @@ export function CloneForm() {
       setName("");
       setFile(null);
       if (input.current) input.current.value = "";
+      try {
+        const uid = await getTtsUserId();
+        if (uid) await invalidateMyVoices(uid);
+      } catch {
+        /* Best-effort invalidation; next TTS mount will refetch via useMyVoices enabled after auth. */
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1750));
       router.push(`/dashboard/tts?voice=${encodeURIComponent(cloned.id)}`);
     } catch {
       setError("A network error occurred. Please check your connection and try again.");
@@ -675,6 +928,7 @@ export function DesignForm() {
 }
 
 function DesignCandidateCard({ candidate, onSaved }: { candidate: VoiceCandidate; onSaved: () => void }) {
+  const invalidateMyVoices = useInvalidateMyVoices();
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -706,9 +960,17 @@ function DesignCandidateCard({ candidate, onSaved }: { candidate: VoiceCandidate
       }
 
       setSaved(true);
+      try {
+        const uid = await getTtsUserId();
+        if (uid) await invalidateMyVoices(uid);
+      } catch {
+        /* Best-effort invalidation. */
+      }
       onSaved();
     } catch {
       setError("A network error occurred. Please check your connection and try again.");
+    } finally {
+      setSaving(false);
     }
   }
 

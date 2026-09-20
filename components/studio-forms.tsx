@@ -6,6 +6,7 @@ import { Select } from "@/components/select";
 import { IconUpload, IconCheck, IconAlert, IconWaveform, IconMic, IconSparkle, IconLibrary } from "@/components/icons";
 import { AudioPlayer } from "@/components/audio-playback";
 import { FREE_TTS_CHARACTER_LIMIT, MAX_TTS_REQUEST_LENGTH } from "@/lib/entitlement-constants";
+import { AdSlot } from "@/components/ads/ad-slot";
 
 const MAX_TEXT_LENGTH = MAX_TTS_REQUEST_LENGTH;
 
@@ -109,6 +110,7 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
           </p>
         )}
         {unavailable && <ProviderUnavailableNotice message={unavailable} />}
+        <AdSlot placement="generation-waiting" active={loading} />
         <div ref={resultRef} className="mt-6">
           <Card className="p-5">
             <h2 className="font-medium text-ink-primary">Audio result</h2>
@@ -432,6 +434,8 @@ export function CloneForm() {
   }
 
   return (
+    <div className="space-y-6">
+    <AdSlot placement="generation-waiting" active={loading} />
     <Card className="mx-auto max-w-3xl p-5 sm:p-7">
       <label className="block text-sm font-medium text-ink-primary">
         Voice name
@@ -529,6 +533,7 @@ export function CloneForm() {
         </p>
       )}
     </Card>
+    </div>
   );
 }
 const MAX_INSTRUCTION_LENGTH = 2000;

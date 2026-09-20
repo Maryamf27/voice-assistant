@@ -3,6 +3,7 @@ import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { getCurrentUser } from "@/lib/auth";
 import { getUserSubscription } from "@/lib/entitlements";
 import { DashboardRevalidator } from "@/components/dashboard-revalidator";
+import { AdProvider } from "@/components/ads/ad-provider";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -14,6 +15,7 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
   const subscription = await getUserSubscription(user.id);
   const isPremium = subscription?.plan === "premium" && subscription.subscriptionStatus === "active";
   return (
+    <AdProvider isPremium={isPremium}>
     <div className="h-screen overflow-hidden bg-base-bg md:flex">
       <DashboardRevalidator />
       <DashboardSidebar isPremium={isPremium} />
@@ -38,5 +40,6 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
         </main>
       </div>
     </div>
+    </AdProvider>
   );
 }

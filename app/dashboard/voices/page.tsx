@@ -4,6 +4,7 @@ import { VoiceCardActions } from "@/components/voice-card-actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { VoiceType } from "@/lib/supabase/types";
 import { IconMic, IconSparkle, IconLibrary } from "@/components/icons";
+import { AdSlot } from "@/components/ads/ad-slot";
 import { getCurrentUser } from "@/lib/auth";
 
 type VoiceItem = { id: string; name: string; type: VoiceType; fish_reference_id: string | null; created_at: string };
@@ -50,6 +51,7 @@ export default async function VoicesPage() {
   return (
     <>
       <PageIntro eyebrow="Library" title="My voices" description="Personal, designed, and authorized library voices in one place." />
+      <AdSlot placement="voice-library" />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {voices.map((voice) => {
           const meta = typeMeta[voice.type] ?? typeMeta.personal;

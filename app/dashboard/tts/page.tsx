@@ -2,6 +2,7 @@ import { TtsForm } from "@/components/studio-forms";
 import { PageIntro } from "@/components/ui";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getTTSAccess, getTTSCharacterLimit } from "@/lib/entitlements";
+import { AdSlot } from "@/components/ads/ad-slot";
 
 export type TtsVoiceOption = { id: string; name: string; type: string };
 
@@ -38,6 +39,7 @@ export default async function TtsPage({ searchParams }: { searchParams: Promise<
         description="Write your script, select a voice, and generate audio."
       />
       <TtsForm voices={voices} model={model} initialVoiceId={initialVoiceId} characterLimit={getTTSCharacterLimit(access.plan)} />
+      <div className="mt-6"><AdSlot placement="tts" /></div>
     </>
   );
 }

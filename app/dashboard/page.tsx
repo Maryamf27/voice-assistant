@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
 import { PageIntro, QuickActionCard, StatCard, EmptyState, StatusBadge, Waveform } from "@/components/ui";
 import { IconWaveform, IconMic, IconSparkle, IconLibrary, IconArrowRight, IconClock } from "@/components/icons";
+import { AdSlot } from "@/components/ads/ad-slot";
 
 type RecentGeneration = { id: string; text: string; status: string; createdAt: string };
 
@@ -84,6 +85,7 @@ export default async function DashboardPage() {
         />
       </div>
 
+      <AdSlot placement="dashboard" />
       <section className="mt-10">
         <h2 className="text-lg font-semibold text-ink-primary">Start creating</h2>
         <p className="mt-1 text-sm text-ink-muted">Choose a workspace to prepare your next voice project.</p>

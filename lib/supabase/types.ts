@@ -33,7 +33,7 @@ export type Database = {
           lemonsqueezy_subscription_id: string | null;
           lemonsqueezy_customer_id: string | null;
           lemonsqueezy_variant_id: string | null;
-          premium_package_id: PremiumPackageId | null;
+          subscription_interval: PremiumPackageId | null;
           subscription_ends_at: string | null;
           created_at: string;
           updated_at: string;
@@ -47,10 +47,21 @@ export type Database = {
           lemonsqueezy_subscription_id?: string | null;
           lemonsqueezy_customer_id?: string | null;
           lemonsqueezy_variant_id?: string | null;
-          premium_package_id?: PremiumPackageId | null;
+          subscription_interval?: PremiumPackageId | null;
           subscription_ends_at?: string | null;
         };
-        Update: Partial<{ name: string; email: string | null; plan: Plan; subscription_status: SubscriptionStatus; lemonsqueezy_subscription_id: string | null; lemonsqueezy_customer_id: string | null; lemonsqueezy_variant_id: string | null; premium_package_id: PremiumPackageId | null; subscription_ends_at: string | null; updated_at: string }>;
+        Update: Partial<{
+          name: string;
+          email: string | null;
+          plan: Plan;
+          subscription_status: SubscriptionStatus;
+          lemonsqueezy_subscription_id: string | null;
+          lemonsqueezy_customer_id: string | null;
+          lemonsqueezy_variant_id: string | null;
+          subscription_interval: PremiumPackageId | null;
+          subscription_ends_at: string | null;
+          updated_at: string;
+        }>;
         Relationships: [];
       };
       voices: {

@@ -179,7 +179,7 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
                 <p className="flex items-center gap-1.5 text-xs text-audio-mint">
                   <IconCheck className="h-3.5 w-3.5" />
                   Generation complete.
-                </p>,
+                </p>
               </div>
             )}
             {!loading && !audioUrl && (

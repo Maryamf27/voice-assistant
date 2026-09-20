@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { VoiceType } from "@/lib/supabase/types";
 import { IconMic, IconSparkle, IconLibrary } from "@/components/icons";
 import { getCurrentUser } from "@/lib/auth";
+import { InAppAd } from "@/components/in-app-ad";
 
 type VoiceItem = { id: string; name: string; type: VoiceType; fish_reference_id: string | null; created_at: string };
 
@@ -78,6 +79,13 @@ export default async function VoicesPage() {
             </Card>
           );
         })}
+      </div>
+      <div className="mt-8">
+        <InAppAd
+          instanceKey="voices-normal-bottom"
+          placement="normal"
+          enableNormalSchedule
+        />
       </div>
     </>
   );

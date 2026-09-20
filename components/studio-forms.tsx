@@ -8,6 +8,7 @@ import { AudioPlayer } from "@/components/audio-playback";
 import { FREE_TTS_CHARACTER_LIMIT, MAX_TTS_REQUEST_LENGTH } from "@/lib/entitlement-constants";
 import { useMyVoices, useInvalidateMyVoices, type MyVoice } from "@/components/voice-queries";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { InAppAd } from "@/components/in-app-ad";
 
 const MAX_TEXT_LENGTH = MAX_TTS_REQUEST_LENGTH;
 
@@ -163,9 +164,16 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
           <Card className="p-5">
             <h2 className="font-medium text-ink-primary">Audio result</h2>
             {loading && (
-              <div className="mt-4 flex h-28 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-base-border">
-                <Equalizer size="md" />
-                <p className="text-xs text-ink-faint">Rendering your audio…</p>
+              <div className="mt-4 space-y-4">
+                <div className="flex h-28 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-base-border">
+                  <Equalizer size="md" />
+                  <p className="text-xs text-ink-faint">Rendering your audio…</p>
+                </div>
+                <InAppAd
+                  instanceKey="tts-generating-card"
+                  placement="tts-generating"
+                  isOperationActive={loading}
+                />
               </div>
             )}
             {!loading && audioUrl && (
@@ -413,6 +421,12 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
             <p className="mt-1 text-xs text-brand-violetSoft/70">{model ? "Selected automatically for this workspace." : "Set FISH_TTS_MODEL on the server to enable generation."}</p>
           </div>
         </Card>
+        <InAppAd
+          instanceKey="tts-sidebar-normal"
+          placement="normal"
+          enableNormalSchedule={!loading}
+          isOperationActive={loading}
+        />
       </aside>
     </div>
   );
@@ -768,6 +782,15 @@ export function CloneForm() {
       >
           {loading ? <Equalizer label="Cloning your voice…" size="sm" /> : "Clone voice"}
       </button>
+      {loading && (
+        <div className="mt-4">
+          <InAppAd
+            instanceKey="clone-cloning-card"
+            placement="clone-cloning"
+            isOperationActive={loading}
+          />
+        </div>
+      )}
       {error && (
           <p role="alert" className="mt-3 flex items-start gap-2 rounded-lg bg-state-rose/10 px-3 py-2 text-sm text-state-rose">
             <IconAlert className="mt-0.5 h-4 w-4 shrink-0" />
@@ -780,6 +803,16 @@ export function CloneForm() {
           <IconCheck className="h-4 w-4 shrink-0" />
           Voice cloned successfully. Your cloned voice is being saved to My Voices.
         </p>
+      )}
+      {!loading && (
+        <div className="mt-6">
+          <InAppAd
+            instanceKey="clone-normal-bottom"
+            placement="normal"
+            enableNormalSchedule
+            isOperationActive={loading}
+          />
+        </div>
       )}
     </Card>
   );

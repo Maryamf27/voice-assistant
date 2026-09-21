@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AudioPlaybackProvider } from "@/components/audio-playback";
+import { ADSENSE_CLIENT_ID } from "@/lib/adsense";
 
 export const metadata: Metadata = {
   title: "Voice Studio",
   description: "Your premium AI voice workspace",
+  // AdSense site-ownership verification. Emitted only once a real publisher ID is configured.
+  ...(ADSENSE_CLIENT_ID ? { other: { "google-adsense-account": ADSENSE_CLIENT_ID } } : {}),
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

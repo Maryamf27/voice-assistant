@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
 import { PageIntro, QuickActionCard, StatCard, EmptyState, StatusBadge, Waveform } from "@/components/ui";
 import { IconWaveform, IconMic, IconSparkle, IconLibrary, IconArrowRight, IconClock } from "@/components/icons";
-import { InAppAd } from "@/components/in-app-ad";
+import { AdSlot } from "@/components/adsense";
 
 type RecentGeneration = { id: string; text: string; status: string; createdAt: string };
 
@@ -125,13 +125,7 @@ export default async function DashboardPage() {
           </div>
         )}
       </section>
-      <div className="mt-8">
-        <InAppAd
-          instanceKey="dashboard-home-normal-bottom"
-          placement="normal"
-          enableNormalSchedule
-        />
-      </div>
+      <AdSlot className="mt-8" />
     </>
   );
 }

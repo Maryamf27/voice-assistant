@@ -1,6 +1,6 @@
 import { PageIntro } from "@/components/ui";
 import { HistoryList } from "@/components/history-list";
-import { InAppAd } from "@/components/in-app-ad";
+import { AdSlot } from "@/components/adsense";
 
 export default function HistoryPage() {
   return (
@@ -11,13 +11,7 @@ export default function HistoryPage() {
         description="Search, filter, and replay your previously generated audio."
       />
       <HistoryList />
-      <div className="mt-8">
-        <InAppAd
-          instanceKey="history-normal-bottom"
-          placement="normal"
-          enableNormalSchedule
-        />
-      </div>
+      <AdSlot className="mt-8" />
     </>
   );
 }

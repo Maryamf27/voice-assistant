@@ -154,3 +154,8 @@
     pointer-events: none;
   }
 }
+
+/* Collapse AdSense units that returned no ad (official technique: https://support.google.com/adsense/answer/10762946). */
+ins.adsbygoogle[data-ad-status="unfilled"] {
+  display: none !important;
+}

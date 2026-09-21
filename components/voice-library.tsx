@@ -10,7 +10,7 @@ import {
   type LibraryVoice as LibraryVoiceItem,
 } from "@/components/voice-queries";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { InAppAd } from "@/components/in-app-ad";
+import { AdSlot } from "@/components/adsense";
 
 const SEARCH_DEBOUNCE_MS = 400;
 
@@ -148,13 +148,7 @@ export function VoiceLibrary() {
           </>
         )}
       </div>
-      <div className="mt-8">
-        <InAppAd
-          instanceKey="library-normal-bottom"
-          placement="normal"
-          enableNormalSchedule
-        />
-      </div>
+      <AdSlot className="mt-8" />
     </div>
   );
 }

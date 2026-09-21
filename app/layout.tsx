@@ -2,10 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 import { AudioPlaybackProvider } from "@/components/audio-playback";
-import {
-  ADSENSE_CLIENT_ID,
-  ADSENSE_SCRIPT_SRC,
-} from "@/lib/adsense";
+import { ADSENSE_CLIENT_ID } from "@/lib/adsense";
 
 export const metadata: Metadata = {
   title: "Voice Studio",
@@ -41,13 +38,6 @@ export default function RootLayout({
           rel="stylesheet"
         />
 
-        {ADSENSE_SCRIPT_SRC ? (
-          <script
-            async
-            src={ADSENSE_SCRIPT_SRC}
-            crossOrigin="anonymous"
-          />
-        ) : null}
       </head>
 
       <body>

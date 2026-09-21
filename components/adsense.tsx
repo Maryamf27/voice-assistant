@@ -12,6 +12,8 @@ import {
 import {
   ADSENSE_CLIENT_ID,
   ADSENSE_CONFIGURED,
+  ADSENSE_ELIGIBILITY_DELAY_MS,
+  ADSENSE_SCRIPT_SRC,
   ADSENSE_SLOT_ID,
 } from "@/lib/adsense";
 
@@ -39,14 +41,22 @@ export function AdSenseProvider({
   const [eligible, setEligible] = useState(false);
 
   useEffect(() => {
-    if (!enabled) {
-      setEligible(false);
-      return;
-    }
+    const scriptSrc = ADSENSE_SCRIPT_SRC;
+    if (!enabled || !ADSENSE_CONFIGURED || !scriptSrc) return;
 
     const timer = window.setTimeout(() => {
+      const existingScript = document.querySelector(`script[src="${scriptSrc}"]`);
+
+      if (!existingScript) {
+        const script = document.createElement("script");
+        script.async = true;
+        script.src = scriptSrc;
+        script.crossOrigin = "anonymous";
+        document.head.appendChild(script);
+      }
+
       setEligible(true);
-    }, 20_000);
+    }, ADSENSE_ELIGIBILITY_DELAY_MS);
 
     return () => {
       window.clearTimeout(timer);
@@ -64,8 +74,8 @@ export function AdSenseProvider({
  * Individual Google AdSense display unit.
  *
  * Important:
- * - The AdSense loader itself is loaded ONCE in app/layout.tsx.
- * - This component only creates the <ins> slot.
+ * - The loader is injected only after the Free-user eligibility delay.
+ * - This component only creates the explicit <ins> slot.
  * - Each slot is initialized once.
  */
 export function AdSlot({ className = "" }: { className?: string }) {

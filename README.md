@@ -527,6 +527,20 @@ FISH_API_KEY=your_fish_audio_api_key
 FISH_TTS_MODEL=your_fish_tts_model
 ```
 
+### Google AdSense (optional)
+
+Free users see Google AdSense ads; Premium users never load the AdSense script. Leave these unset to run
+the app ad-free (`/ads.txt` then returns 404). Both are public identifiers, not secrets. They are inlined
+at build time, so redeploy after changing them, and set them for the Production environment only.
+
+```env
+NEXT_PUBLIC_ADSENSE_CLIENT_ID=ca-pub-xxxxxxxxxxxxxxxx   # AdSense > Account > Account information
+NEXT_PUBLIC_ADSENSE_SLOT_ID=xxxxxxxxxx                   # numeric slot of a responsive display ad unit
+```
+
+`/ads.txt` and the `google-adsense-account` meta tag are generated from the client ID. Because the dashboard
+is behind a login, also configure AdSense > Account > Access and authorization > Crawler access.
+
 Never commit `.env.local` or other files containing secret API keys.
 
 ## Installation

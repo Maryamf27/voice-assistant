@@ -10,6 +10,7 @@ import {
   type LibraryVoice as LibraryVoiceItem,
 } from "@/components/voice-queries";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { AdSlot } from "@/components/adsense";
 
 const SEARCH_DEBOUNCE_MS = 400;
 
@@ -147,6 +148,7 @@ export function VoiceLibrary() {
           </>
         )}
       </div>
+      <AdSlot className="mt-8" />
     </div>
   );
 }

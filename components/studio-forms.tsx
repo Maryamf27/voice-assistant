@@ -6,7 +6,7 @@ import { Select } from "@/components/select";
 import { IconUpload, IconCheck, IconAlert, IconWaveform, IconMic, IconSparkle, IconLibrary, IconVoices, IconChevronRight } from "@/components/icons";
 import { AudioPlayer } from "@/components/audio-playback";
 import { FREE_TTS_CHARACTER_LIMIT, MAX_TTS_REQUEST_LENGTH } from "@/lib/entitlement-constants";
-import { AdSlot } from "@/components/ads/ad-slot";
+import { AdSlot } from "@/components/adsense";
 import { useMyVoices, useInvalidateMyVoices, type MyVoice } from "@/components/voice-queries";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -166,9 +166,11 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
           <Card className="p-5">
             <h2 className="font-medium text-ink-primary">Audio result</h2>
             {loading && (
-              <div className="mt-4 flex h-28 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-base-border">
-                <Equalizer size="md" />
-                <p className="text-xs text-ink-faint">Rendering your audio…</p>
+              <div className="mt-4 space-y-4">
+                <div className="flex h-28 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-base-border">
+                  <Equalizer size="md" />
+                  <p className="text-xs text-ink-faint">Rendering your audio…</p>
+                </div>
               </div>
             )}
             {!loading && audioUrl && (
@@ -182,7 +184,7 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
                 <p className="flex items-center gap-1.5 text-xs text-audio-mint">
                   <IconCheck className="h-3.5 w-3.5" />
                   Generation complete.
-                </p>,
+                </p>
               </div>
             )}
             {!loading && !audioUrl && (
@@ -409,6 +411,17 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
             {voices.length > 0 ? "Your saved and authorized voices are available here." : "Your saved and authorized voices will appear here once ready for text-to-speech."}
           </p>
         </Card>
+<<<<<<< HEAD
+=======
+        <Card className="p-5">
+          <h2 className="font-medium text-ink-primary">Model</h2>
+          <div className="mt-4 rounded-xl border border-brand-violet/30 bg-brand-violet/10 p-3">
+            <p className="text-sm font-medium text-brand-violetSoft">{model ?? "Not configured"}</p>
+            <p className="mt-1 text-xs text-brand-violetSoft/70">{model ? "Selected automatically for this workspace." : "Set FISH_TTS_MODEL on the server to enable generation."}</p>
+          </div>
+        </Card>
+        <AdSlot />
+>>>>>>> origin/main
       </aside>
     </div>
   );

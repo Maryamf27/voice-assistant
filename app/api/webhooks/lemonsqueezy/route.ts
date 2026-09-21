@@ -3,8 +3,9 @@ import { createClient } from "@supabase/supabase-js";
 import {
   resolvePremiumPackageId,
   verifyLemonSqueezyWebhook,
+  getPremiumPackage,
 } from "@/lib/payment-provider";
-import type { Database } from "@/lib/supabase/types";
+import type { Database, Plan, PremiumPackageId } from "@/lib/supabase/types";
 
 export const runtime = "nodejs";
 
@@ -28,6 +29,12 @@ type LemonSqueezyEvent = {
       user_email?: string | null;
       user_name?: string | null;
       variant_id?: number | string | null;
+      renews_at?: string | null;
+      created_at?: string | null;
+      updated_at?: string | null;
+      card_brand?: string | null;
+      currency?: string | null;
+      order_id?: number | null;
     };
 
     relationships?: {
@@ -39,6 +46,23 @@ type LemonSqueezyEvent = {
     };
   };
 };
+
+const SUBSCRIPTION_RESOURCE_EVENTS = new Set([
+  "subscription_created",
+  "subscription_updated",
+  "subscription_resumed",
+  "subscription_unpaused",
+  "subscription_cancelled",
+  "subscription_paused",
+  "subscription_expired",
+]);
+
+const INVOICE_EVENTS = new Set([
+  "subscription_payment_success",
+  "subscription_payment_failed",
+  "subscription_payment_recovered",
+  "subscription_payment_refunded",
+]);
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -54,6 +78,39 @@ function getAdminClient() {
       persistSession: false,
     },
   });
+}
+
+function normalizeStatus(
+  eventName: string,
+  payloadStatus: string | undefined,
+): string {
+  switch (eventName) {
+    case "subscription_cancelled":
+      return "cancelled";
+
+    case "subscription_expired":
+      return "expired";
+
+    case "subscription_paused":
+      return "paused";
+
+    case "subscription_resumed":
+    case "subscription_unpaused":
+    case "subscription_created":
+      return "active";
+
+    case "subscription_updated":
+      return payloadStatus ?? "inactive";
+
+    case "subscription_payment_success":
+      return "active";
+
+    case "subscription_payment_failed":
+      return payloadStatus ?? "inactive";
+
+    default:
+      return payloadStatus ?? "inactive";
+  }
 }
 
 export async function POST(request: Request) {
@@ -97,20 +154,19 @@ export async function POST(request: Request) {
 
   const attributes = event.data.attributes;
 
-  /*
-   * Lemon Squeezy has different resource types.
-   *
-   * Subscription events:
-   *   data.id = subscription ID
-   *
-   * Invoice/payment events:
-   *   data.id = invoice ID
-   *   attributes.subscription_id = subscription ID
-   */
+  const isSubscriptionResourceEvent =
+    SUBSCRIPTION_RESOURCE_EVENTS.has(eventName);
+
+  const isInvoiceEvent = INVOICE_EVENTS.has(eventName);
+
   const subscriptionId =
-    attributes?.subscription_id != null
+    isInvoiceEvent && attributes?.subscription_id != null
       ? String(attributes.subscription_id)
-      : event.data.id;
+      : isSubscriptionResourceEvent
+        ? event.data.id
+        : attributes?.subscription_id != null
+          ? String(attributes.subscription_id)
+          : event.data.id;
 
   const status = attributes?.status;
 
@@ -120,9 +176,7 @@ export async function POST(request: Request) {
 
   let resolvedUserId = event.meta?.custom_data?.user_id;
 
-  /*
-   * Fallback: identify user by email.
-   */
+
   if (!resolvedUserId && attributes?.user_email) {
     const { data: profile } = await supabase
       .from("profiles")
@@ -140,7 +194,6 @@ export async function POST(request: Request) {
     status === "active" ||
     new Set([
       "subscription_created",
-      "subscription_updated",
       "subscription_resumed",
       "subscription_unpaused",
       "subscription_payment_success",
@@ -156,7 +209,7 @@ export async function POST(request: Request) {
 
   const entitlementEvent = grantsAccess || revokesAccess;
 
-  if (!entitlementEvent) {
+  if (!entitlementEvent && !isSubscriptionResourceEvent) {
     return NextResponse.json({
       received: true,
       ignored: "unhandled_event",
@@ -180,16 +233,10 @@ export async function POST(request: Request) {
     );
   }
 
-  /*
-   * Get the current subscription information.
-   *
-   * This is important because payment/invoice events may not contain
-   * variant_id or ends_at.
-   */
   const { data: currentProfile, error: profileReadError } = await supabase
     .from("profiles")
     .select(
-      "lemonsqueezy_subscription_id, lemonsqueezy_variant_id, subscription_interval, subscription_ends_at",
+      "lemonsqueezy_subscription_id, lemonsqueezy_customer_id, lemonsqueezy_variant_id, subscription_interval, subscription_ends_at",
     )
     .eq("id", resolvedUserId)
     .maybeSingle();
@@ -209,117 +256,169 @@ export async function POST(request: Request) {
   const currentSubscriptionId =
     currentProfile?.lemonsqueezy_subscription_id ?? null;
 
-  /*
-   * Ignore cancellation/expiration events belonging to an old
-   * subscription.
-   */
-  if (
-    revokesAccess &&
-    currentSubscriptionId &&
-    currentSubscriptionId !== subscriptionId
-  ) {
-    return NextResponse.json({
-      received: true,
-      ignored: "stale_subscription_event",
-    });
-  }
+  const isStaleRevocation =
+    Boolean(
+      revokesAccess &&
+        currentSubscriptionId &&
+        currentSubscriptionId !== subscriptionId,
+    );
 
-  /*
-   * Get variant ID from the current webhook payload.
-   *
-   * Some events provide attributes.variant_id.
-   * Others provide relationships.variant.data.id.
-   */
   const payloadVariantId =
     attributes?.variant_id != null
       ? String(attributes.variant_id)
       : event.data?.relationships?.variant?.data?.id ?? null;
 
-  /*
-   * Keep the existing variant if this particular event doesn't
-   * contain one.
-   */
   const variantId =
     payloadVariantId ??
     currentProfile?.lemonsqueezy_variant_id ??
     null;
 
-  /*
-   * Resolve monthly/yearly.
-   *
-   * If the current event doesn't contain enough information,
-   * preserve the value already stored in Supabase.
-   */
+
   const resolvedPackageId = resolvePremiumPackageId({
     variantId: payloadVariantId,
     packageId: event.meta?.custom_data?.package_id,
   });
 
-  const packageId =
-    resolvedPackageId ??
-    currentProfile?.subscription_interval ??
-    null;
+  const packageId: PremiumPackageId | null =
+    (resolvedPackageId ??
+      (currentProfile?.subscription_interval === "monthly" ||
+      currentProfile?.subscription_interval === "yearly"
+        ? currentProfile.subscription_interval
+        : null)) as PremiumPackageId | null;
 
-  /*
-   * Don't erase subscription_ends_at when an event doesn't
-   * provide ends_at.
-   */
   const subscriptionEndsAt =
     attributes?.ends_at !== undefined
       ? attributes.ends_at
       : currentProfile?.subscription_ends_at ?? null;
 
-  const update = grantsAccess
-    ? {
-        plan: "premium" as const,
-        subscription_status: "active" as const,
+  const customerId =
+    attributes?.customer_id != null
+      ? String(attributes.customer_id)
+      : currentProfile?.lemonsqueezy_customer_id ?? null;
 
-        lemonsqueezy_subscription_id: subscriptionId,
+  if (entitlementEvent && !isStaleRevocation) {
+    const update = grantsAccess
+      ? {
+          plan: "premium" as Plan,
+          subscription_status: "active" as const,
 
-        lemonsqueezy_customer_id:
-          attributes?.customer_id != null
-            ? String(attributes.customer_id)
-            : null,
+          lemonsqueezy_subscription_id: subscriptionId,
 
-        lemonsqueezy_variant_id: variantId,
+          lemonsqueezy_customer_id: customerId,
 
-        subscription_interval: packageId,
+          lemonsqueezy_variant_id: variantId,
 
-        subscription_ends_at: subscriptionEndsAt,
-      }
-    : {
-        plan: "free" as const,
-        subscription_status: "inactive" as const,
+          subscription_interval: packageId,
 
-        lemonsqueezy_subscription_id: subscriptionId,
+          subscription_ends_at: subscriptionEndsAt,
+        }
+      : {
+          plan: "free" as Plan,
+          subscription_status: "inactive" as const,
 
-        lemonsqueezy_variant_id: null,
+          lemonsqueezy_subscription_id: subscriptionId,
 
-        subscription_interval: null,
+          lemonsqueezy_customer_id: customerId,
 
-        subscription_ends_at: subscriptionEndsAt,
-      };
+          lemonsqueezy_variant_id: null,
 
-  const { error: updateError } = await supabase
-    .from("profiles")
-    .update(update)
-    .eq("id", resolvedUserId);
+          subscription_interval: null,
 
-  if (updateError) {
-    console.error(
-      "Could not synchronize Premium entitlement",
-      updateError,
-    );
+          subscription_ends_at: subscriptionEndsAt,
+        };
 
-    return NextResponse.json(
-      { error: "Entitlement update failed." },
-      { status: 500 },
-    );
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update(update)
+      .eq("id", resolvedUserId);
+
+    if (updateError) {
+      console.error(
+        "Could not synchronize Premium entitlement",
+        updateError,
+      );
+
+      return NextResponse.json(
+        { error: "Entitlement update failed." },
+        { status: 500 },
+      );
+    }
   }
 
-  /*
-   * Record webhook event.
-   */
+  if (isSubscriptionResourceEvent) {
+    const resolvedStatus = normalizeStatus(
+      eventName,
+      status,
+    );
+
+    const matchedPackage = variantId
+      ? getPremiumPackage(String(variantId))
+      : null;
+
+    const price =
+      matchedPackage?.priceAmount ?? null;
+
+    const currency =
+      matchedPackage?.currency ??
+      attributes?.currency ??
+      null;
+
+    const renewsAt =
+      attributes?.renews_at ?? null;
+
+    const startedAt =
+      attributes?.created_at ??
+      null;
+
+    const historyRecord = {
+      user_id: resolvedUserId,
+
+      lemonsqueezy_subscription_id: subscriptionId,
+
+      lemonsqueezy_customer_id: customerId,
+
+      lemonsqueezy_variant_id: variantId,
+
+      subscription_interval: packageId,
+
+      plan: "premium",
+
+      status: resolvedStatus,
+
+      price,
+
+      currency,
+
+      started_at: startedAt,
+
+      renews_at: renewsAt,
+
+      ends_at: subscriptionEndsAt,
+
+      updated_at: new Date().toISOString(),
+    } as const;
+
+    const { error: historyError } = await supabase
+      .from("subscription_history")
+      .upsert(historyRecord, {
+        onConflict:
+          "user_id,lemonsqueezy_subscription_id",
+        ignoreDuplicates: false,
+      });
+
+    if (historyError) {
+      console.error(
+        "Could not synchronize subscription history",
+        historyError,
+      );
+
+      return NextResponse.json(
+        { error: "Subscription history update failed." },
+        { status: 500 },
+      );
+    }
+  }
+
   const { error: eventError } = await supabase
     .from("payment_webhook_events")
     .insert({
@@ -339,7 +438,16 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ received: true });
+  return NextResponse.json({
+    received: true,
+
+    ...(isStaleRevocation
+      ? {
+          history_updated: true,
+          ignored_profile_update: "stale_subscription_event",
+        }
+      : {}),
+  });
 }
 
 export async function GET() {

@@ -6,6 +6,7 @@ import type { VoiceType } from "@/lib/supabase/types";
 import { IconMic, IconSparkle, IconLibrary } from "@/components/icons";
 import { AdSlot } from "@/components/ads/ad-slot";
 import { getCurrentUser } from "@/lib/auth";
+import { AdSlot } from "@/components/adsense";
 
 type VoiceItem = { id: string; name: string; type: VoiceType; fish_reference_id: string | null; created_at: string };
 
@@ -81,6 +82,7 @@ export default async function VoicesPage() {
           );
         })}
       </div>
+      <AdSlot className="mt-8" />
     </>
   );
 }

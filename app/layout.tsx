@@ -2,13 +2,15 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 import { AudioPlaybackProvider } from "@/components/audio-playback";
-import { ADSENSE_CLIENT_ID, ADSENSE_SCRIPT_SRC } from "@/lib/adsense";
+import {
+  ADSENSE_CLIENT_ID,
+  ADSENSE_SCRIPT_SRC,
+} from "@/lib/adsense";
 
 export const metadata: Metadata = {
   title: "Voice Studio",
   description: "Your premium AI voice workspace",
 
-  // AdSense site-ownership verification.
   ...(ADSENSE_CLIENT_ID
     ? {
         other: {
@@ -27,6 +29,7 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
+
         <link
           rel="preconnect"
           href="https://fonts.gstatic.com"
@@ -48,7 +51,9 @@ export default function RootLayout({
       </head>
 
       <body>
-        <AudioPlaybackProvider>{children}</AudioPlaybackProvider>
+        <AudioPlaybackProvider>
+          {children}
+        </AudioPlaybackProvider>
       </body>
     </html>
   );

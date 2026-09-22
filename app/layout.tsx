@@ -2,19 +2,10 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 import { AudioPlaybackProvider } from "@/components/audio-playback";
-import { ADSENSE_CLIENT_ID } from "@/lib/adsense";
 
 export const metadata: Metadata = {
   title: "Voice Studio",
   description: "Your premium AI voice workspace",
-
-  ...(ADSENSE_CLIENT_ID
-    ? {
-        other: {
-          "google-adsense-account": ADSENSE_CLIENT_ID,
-        },
-      }
-    : {}),
 };
 
 export default function RootLayout({

@@ -527,19 +527,38 @@ FISH_API_KEY=your_fish_audio_api_key
 FISH_TTS_MODEL=your_fish_tts_model
 ```
 
-### Google AdSense (optional)
+### Adsterra (optional)
 
-Free users see Google AdSense ads; Premium users never load the AdSense script. Leave these unset to run
-the app ad-free (`/ads.txt` then returns 404). Both are public identifiers, not secrets. They are inlined
-at build time, so redeploy after changing them, and set them for the Production environment only.
+Free users see Adsterra ads; Premium users never load any ad script. Leave these unset to run the app
+ad-free. Ad keys/URLs are public identifiers, not secrets. They are inlined at build time, so redeploy
+after changing them, and set them for the Production environment only.
+
+Get the snippets from Adsterra > Websites > Manage ad units, for a **Banner** unit and/or a **Native
+Banner** unit, then copy the values out of them:
 
 ```env
-NEXT_PUBLIC_ADSENSE_CLIENT_ID=ca-pub-xxxxxxxxxxxxxxxx   # AdSense > Account > Account information
-NEXT_PUBLIC_ADSENSE_SLOT_ID=xxxxxxxxxx                   # numeric slot of a responsive display ad unit
+# Banner (e.g. 300x250), from the atOptions script + the invoke.js <script src="...">
+NEXT_PUBLIC_ADSTERRA_BANNER_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+NEXT_PUBLIC_ADSTERRA_BANNER_SCRIPT_SRC=//www.xxxxxxxxxxxxxxx.com/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/invoke.js
+NEXT_PUBLIC_ADSTERRA_BANNER_WIDTH=300     # optional, default 300
+NEXT_PUBLIC_ADSTERRA_BANNER_HEIGHT=250    # optional, default 250
+
+# Native Banner, from the invoke.js <script src="..."> and the placeholder <div id="...">
+NEXT_PUBLIC_ADSTERRA_NATIVE_SCRIPT_SRC=//www.xxxxxxxxxxxxxxx.com/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/invoke.js
+NEXT_PUBLIC_ADSTERRA_NATIVE_CONTAINER_ID=container-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+NEXT_PUBLIC_ADSTERRA_NATIVE_HEIGHT=300    # optional, default 300
+
+# Optional: delay (ms) before the first ad of a dashboard session is eligible to render.
+# Defaults to 5000. Set to 0 to make ads eligible immediately.
+NEXT_PUBLIC_ADSTERRA_ELIGIBILITY_DELAY_MS=5000
 ```
 
-`/ads.txt` and the `google-adsense-account` meta tag are generated from the client ID. Because the dashboard
-is behind a login, also configure AdSense > Account > Access and authorization > Crawler access.
+You can configure only the Banner unit, only the Native Banner unit, or both — `AdSlot` picks between
+them via its `variant` prop (`"banner"` | `"native"`), and any slot whose ad unit isn't configured
+simply renders nothing.
+
+Every ad renders inside a sandboxed `<iframe>` with no `allow-top-navigation`: an ad can open its
+click-through in a new tab, but it can never redirect the app itself.
 
 Never commit `.env.local` or other files containing secret API keys.
 

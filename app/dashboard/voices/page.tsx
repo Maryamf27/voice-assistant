@@ -5,7 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { VoiceType } from "@/lib/supabase/types";
 import { IconMic, IconSparkle, IconLibrary } from "@/components/icons";
 import { getCurrentUser } from "@/lib/auth";
-import { AdSlot } from "@/components/adsense";
+import { AdSlot } from "@/components/adsterra";
 
 type VoiceItem = { id: string; name: string; type: VoiceType; fish_reference_id: string | null; created_at: string };
 
@@ -80,7 +80,7 @@ export default async function VoicesPage() {
           );
         })}
       </div>
-      <AdSlot className="mt-8" />
+      <AdSlot className="mt-8" variant="native" />
     </>
   );
 }

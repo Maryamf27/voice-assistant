@@ -5,8 +5,8 @@ import { getUserSubscription } from "@/lib/entitlements";
 import { DashboardRevalidator } from "@/components/dashboard-revalidator";
 import { ReactQueryProvider } from "@/components/react-query-provider";
 import { SubscriptionProvider } from "@/components/subscription-provider";
-import { AdSenseProvider } from "@/components/adsense";
-import { ADSENSE_CONFIGURED } from "@/lib/adsense";
+import { AdsterraProvider } from "@/components/adsterra";
+import { ADSTERRA_CONFIGURED } from "@/lib/adsterra";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -17,9 +17,9 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
 
   const subscription = await getUserSubscription(user.id);
   const isPremium = subscription?.plan === "premium" && subscription.subscriptionStatus === "active";
-  // Ads are shown only when AdSense is configured AND the server positively identified a Free user.
+  // Ads are shown only when Adsterra is configured AND the server positively identified a Free user.
   // If the entitlement could not be loaded (subscription === null) we fail closed: no ads.
-  const adsEnabled = ADSENSE_CONFIGURED && subscription !== null && !isPremium;
+  const adsEnabled = ADSTERRA_CONFIGURED && subscription !== null && !isPremium;
   return (
     <ReactQueryProvider>
       <SubscriptionProvider isPremium={isPremium}>
@@ -44,7 +44,7 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
             </header>
             <main className="min-h-0 flex-1 overflow-y-auto">
               <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">
-                <AdSenseProvider enabled={adsEnabled}>{children}</AdSenseProvider>
+                <AdsterraProvider enabled={adsEnabled}>{children}</AdsterraProvider>
               </div>
             </main>
           </div>

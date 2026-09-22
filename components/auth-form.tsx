@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
-import { IconAlert, IconCheck, IconWaveform } from "@/components/icons";
+import { IconAlert, IconCheck, IconWaveform, IconEye, IconEyeOff } from "@/components/icons";
 
 type Mode = "login" | "register";
 
@@ -76,8 +76,8 @@ export function AuthForm({ mode }: { mode: Mode }) {
         <form className="mt-7 space-y-4" onSubmit={submit}>
           {isRegister && <Field label="Name" name="name" autoComplete="name" />}
           <Field label="Email" name="email" type="email" autoComplete="email" />
-          <Field label="Password" name="password" type="password" autoComplete={isRegister ? "new-password" : "current-password"} />
-          {isRegister && <Field label="Confirm password" name="confirmPassword" type="password" autoComplete="new-password" />}
+          <PasswordField label="Password" name="password" autoComplete={isRegister ? "new-password" : "current-password"} />
+          {isRegister && <PasswordField label="Confirm password" name="confirmPassword" autoComplete="new-password" />}
           {error && (
             <p role="alert" className="flex items-start gap-2 rounded-lg border border-state-rose/25 bg-state-rose/10 px-3 py-2 text-sm text-state-rose">
               <IconAlert className="mt-0.5 h-4 w-4 shrink-0" />
@@ -107,6 +107,35 @@ function Field({ label, name, type = "text", autoComplete }: { label: string; na
     <label className="block text-sm font-medium text-ink-primary/90">
       {label}
       <input className="mt-1.5" name={name} type={type} autoComplete={autoComplete} required minLength={name.includes("password") ? 8 : undefined} />
+    </label>
+  );
+}
+
+function PasswordField({ label, name, autoComplete }: { label: string; name: string; autoComplete: string }) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <label className="block text-sm font-medium text-ink-primary/90">
+      {label}
+      <div className="relative mt-1.5">
+        <input
+          className="pr-10"
+          name={name}
+          type={visible ? "text" : "password"}
+          autoComplete={autoComplete}
+          required
+          minLength={8}
+        />
+        <button
+          type="button"
+          onClick={() => setVisible((v) => !v)}
+          aria-label={visible ? "Hide password" : "Show password"}
+          aria-pressed={visible}
+          tabIndex={-1}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-faint transition hover:text-ink-primary"
+        >
+          {visible ? <IconEyeOff className="h-4 w-4" /> : <IconEye className="h-4 w-4" />}
+        </button>
+      </div>
     </label>
   );
 }

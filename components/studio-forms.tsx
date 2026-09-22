@@ -410,15 +410,12 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
           <p className="mt-3 text-xs leading-5 text-ink-faint">
             {voices.length > 0 ? "Your saved and authorized voices are available here." : "Your saved and authorized voices will appear here once ready for text-to-speech."}
           </p>
-        </Card>
-        <Card className="p-5">
-          <h2 className="font-medium text-ink-primary">Model</h2>
-          <div className="mt-4 rounded-xl border border-brand-violet/30 bg-brand-violet/10 p-3">
-            <p className="text-sm font-medium text-brand-violetSoft">{model ?? "Not configured"}</p>
-            <p className="mt-1 text-xs text-brand-violetSoft/70">{model ? "Selected automatically for this workspace." : "Set FISH_TTS_MODEL on the server to enable generation."}</p>
+          {/* Placed inside the Voice card, right below the fold-safe content, so Free users see it
+              without needing to scroll the sidebar. */}
+          <div className="mt-5 border-t border-base-border pt-5">
+            <AdSlot variant="banner" />
           </div>
         </Card>
-        <AdSlot variant="banner" />
       </aside>
     </div>
   );

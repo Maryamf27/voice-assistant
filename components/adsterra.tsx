@@ -116,9 +116,12 @@ function AdFrame({
   width?: number;
   height: number;
 }) {
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed) return null;
+
   return (
     <div className={`flex flex-col-reverse gap-1.5 ${className}`}>
-      <div className="mx-auto w-full overflow-hidden" style={{ maxWidth: width ?? "100%" }}>
+      <div className="relative mx-auto w-full overflow-hidden" style={{ maxWidth: width ?? "100%" }}>
         <iframe
           srcDoc={html}
           title="Advertisement"
@@ -128,6 +131,16 @@ function AdFrame({
           sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
           style={{ width: "100%", height, border: "none", display: "block" }}
         />
+        <button
+          type="button"
+          onClick={() => setDismissed(true)}
+          aria-label="Close advertisement"
+          className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-base-bg/80 text-ink-muted shadow-sm ring-1 ring-base-border backdrop-blur transition hover:bg-base-bg hover:text-ink-primary"
+        >
+          <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={2.25} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 6l12 12M18 6 6 18" />
+          </svg>
+        </button>
       </div>
       <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-ink-faint">Advertisement</p>
     </div>

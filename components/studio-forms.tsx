@@ -426,7 +426,8 @@ const CLONE_SAMPLE_WORDS = CLONE_SAMPLE_TEXT.split(" ");
 const VAD_RMS_THRESHOLD = 0.045;
 const VAD_SUSTAINED_FRAMES = 4;
 
-type CloneRecordingState = "idle" | "waiting_for_speech" | "recording" | "processing";
+type CloneRecordingState = "idle" | "countdown" | "recording" | "processing";
+const CLONE_COUNTDOWN_SECONDS = 3;
 type SpeechListener = {
   start: () => void;
   stop: () => void;
@@ -442,6 +443,7 @@ export function CloneForm() {
   const stream = useRef<MediaStream | null>(null);
   const chunks = useRef<Blob[]>([]);
   const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const noSpeechTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const vadFrame = useRef<number | null>(null);
   const audioContext = useRef<AudioContext | null>(null);
@@ -454,6 +456,7 @@ export function CloneForm() {
   const [dragOver, setDragOver] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recordingState, setRecordingState] = useState<CloneRecordingState>("idle");
+  const [countdown, setCountdown] = useState<number | null>(null);
   const [activeWord, setActiveWord] = useState(-1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -463,6 +466,7 @@ export function CloneForm() {
 
   useEffect(() => () => {
     if (progressTimer.current) clearInterval(progressTimer.current);
+    if (countdownTimer.current) clearInterval(countdownTimer.current);
     if (noSpeechTimer.current) clearTimeout(noSpeechTimer.current);
     noSpeechTimer.current = null;
     if (vadFrame.current !== null) cancelAnimationFrame(vadFrame.current);
@@ -486,6 +490,8 @@ export function CloneForm() {
   function stopTracks() {
     if (progressTimer.current) clearInterval(progressTimer.current);
     progressTimer.current = null;
+    if (countdownTimer.current) clearInterval(countdownTimer.current);
+    countdownTimer.current = null;
     if (vadFrame.current !== null) cancelAnimationFrame(vadFrame.current);
     vadFrame.current = null;
     recognition.current?.stop();
@@ -502,21 +508,24 @@ export function CloneForm() {
     return value.toLowerCase().replace(/[^a-z\s]/g, "").split(/\s+/).filter(Boolean);
   }
 
+  // Only used to let the recording finish early once the whole sample has
+  // clearly been read aloud. It intentionally no longer moves the
+  // highlighted word — the word-by-word animation is driven purely by
+  // startWordAnimation()'s fixed-pace timer below, not by what (or whether)
+  // the user has actually said.
   function advanceFromSpeech(transcript: string) {
     const spoken = normalizeWords(transcript);
     const target = normalizeWords(CLONE_SAMPLE_TEXT);
     let matched = 0;
     while (matched < spoken.length && matched < target.length && spoken[matched] === target[matched]) matched += 1;
-    if (matched > 0) {
-      setRecordingState("recording");
-      setActiveWord(Math.min(matched - 1, CLONE_SAMPLE_WORDS.length - 1));
-      if (matched >= target.length) stopRecording();
-    }
+    if (matched >= target.length) stopRecording();
   }
 
+  // Fixed-pace word highlight animation. Starts as soon as it's called and
+  // advances one word every 1200ms regardless of microphone input — it does
+  // not wait for, or react to, speech detection.
   function startWordAnimation() {
-    if (progressTimer.current || !speechDetected.current) return;
-    setRecordingState("recording");
+    if (progressTimer.current) return;
     setActiveWord(0);
     progressTimer.current = setInterval(() => {
       setActiveWord((current) => {
@@ -532,6 +541,9 @@ export function CloneForm() {
     }, 1200);
   }
 
+  // Voice-activity detection. This now only confirms that *some* sound was
+  // captured (so a silent recording can be rejected on stop) — it no longer
+  // triggers the word animation.
   function monitorSpeech() {
     const currentAnalyser = analyser.current;
     if (!currentAnalyser || !recorder.current || recorder.current.state !== "recording") return;
@@ -547,7 +559,6 @@ export function CloneForm() {
     else speechFrames.current = Math.max(0, speechFrames.current - 1);
     if (!speechDetected.current && speechFrames.current >= VAD_SUSTAINED_FRAMES) {
       speechDetected.current = true;
-      startWordAnimation();
     }
     vadFrame.current = requestAnimationFrame(monitorSpeech);
   }
@@ -559,10 +570,49 @@ export function CloneForm() {
     setSuccess(false);
     setActiveWord(-1);
     setRecordingState("idle");
+    setCountdown(null);
     speechDetected.current = false;
     speechFrames.current = 0;
     chunks.current = [];
     if (input.current) input.current.value = "";
+  }
+
+  // Actually starts capturing audio, wires up speech recognition / VAD for
+  // validation purposes only, and kicks off the fixed-pace word animation.
+  // Called once the 3-2-1 countdown reaches zero.
+  function beginActiveRecording(nextRecorder: MediaRecorder, nextStream: MediaStream) {
+    setRecordingState("recording");
+    nextRecorder.start();
+    const SpeechRecognition = (window as Window & { SpeechRecognition?: new () => SpeechListener; webkitSpeechRecognition?: new () => SpeechListener }).SpeechRecognition
+      ?? (window as Window & { webkitSpeechRecognition?: new () => SpeechListener }).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const listener = new SpeechRecognition();
+      listener.onresult = (event) => {
+        const transcript = Array.from(event.results).map((result) => result[0]?.transcript ?? "").join(" ");
+        advanceFromSpeech(transcript);
+      };
+      listener.onerror = () => { /* VAD remains the safe fallback. */ };
+      recognition.current = listener;
+      listener.start();
+    }
+    const context = new AudioContext();
+    const source = context.createMediaStreamSource(nextStream);
+    const nextAnalyser = context.createAnalyser();
+    nextAnalyser.fftSize = 2048;
+    source.connect(nextAnalyser);
+    audioContext.current = context;
+    analyser.current = nextAnalyser;
+    vadFrame.current = requestAnimationFrame(monitorSpeech);
+    noSpeechTimer.current = setTimeout(() => {
+      if (!speechDetected.current && recorder.current?.state === "recording") {
+        setError("No speech detected. Please try again.");
+        recorder.current.stop();
+      }
+    }, 10000);
+
+    // Word-by-word zoom animation starts right away, on its own fixed pace —
+    // it does not wait for the VAD or speech recognition to report anything.
+    startWordAnimation();
   }
 
   async function startRecording() {
@@ -581,7 +631,7 @@ export function CloneForm() {
       speechDetected.current = false;
       speechFrames.current = 0;
       setRecording(true);
-      setRecordingState("waiting_for_speech");
+      setRecordingState("countdown");
       setActiveWord(-1);
       nextRecorder.ondataavailable = (event) => { if (event.data.size > 0) chunks.current.push(event.data); };
       nextRecorder.onstop = () => {
@@ -601,33 +651,24 @@ export function CloneForm() {
         setRecordingState("processing");
         void handleClone(audio);
       };
-      nextRecorder.start();
-      const SpeechRecognition = (window as Window & { SpeechRecognition?: new () => SpeechListener; webkitSpeechRecognition?: new () => SpeechListener }).SpeechRecognition
-        ?? (window as Window & { webkitSpeechRecognition?: new () => SpeechListener }).webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        const listener = new SpeechRecognition();
-        listener.onresult = (event) => {
-          const transcript = Array.from(event.results).map((result) => result[0]?.transcript ?? "").join(" ");
-          advanceFromSpeech(transcript);
-        };
-        listener.onerror = () => { /* VAD remains the safe fallback. */ };
-        recognition.current = listener;
-        listener.start();
-      }
-      const context = new AudioContext();
-      const source = context.createMediaStreamSource(nextStream);
-      const nextAnalyser = context.createAnalyser();
-      nextAnalyser.fftSize = 2048;
-      source.connect(nextAnalyser);
-      audioContext.current = context;
-      analyser.current = nextAnalyser;
-      vadFrame.current = requestAnimationFrame(monitorSpeech);
-      noSpeechTimer.current = setTimeout(() => {
-        if (!speechDetected.current && recorder.current?.state === "recording") {
-          setError("No speech detected. Please try again.");
-          recorder.current.stop();
+
+      // Show a 3-2-1 countdown before anything starts. The word animation
+      // (and the actual recording) only begins once it reaches zero — this
+      // is a fixed, deterministic delay, not something that waits on the
+      // user to speak.
+      let secondsLeft = CLONE_COUNTDOWN_SECONDS;
+      setCountdown(secondsLeft);
+      countdownTimer.current = setInterval(() => {
+        secondsLeft -= 1;
+        if (secondsLeft <= 0) {
+          if (countdownTimer.current) clearInterval(countdownTimer.current);
+          countdownTimer.current = null;
+          setCountdown(null);
+          beginActiveRecording(nextRecorder, nextStream);
+        } else {
+          setCountdown(secondsLeft);
         }
-      }, 10000);
+      }, 1000);
     } catch (recordingError) {
       stopTracks();
       setRecording(false);
@@ -637,6 +678,17 @@ export function CloneForm() {
   }
 
   function stopRecording() {
+    if (recordingState === "countdown") {
+      // Cancelling during the countdown: nothing has actually started
+      // recording yet, so just tear everything down and reset.
+      if (countdownTimer.current) clearInterval(countdownTimer.current);
+      countdownTimer.current = null;
+      setCountdown(null);
+      stopTracks();
+      setRecording(false);
+      setRecordingState("idle");
+      return;
+    }
     if (recorder.current?.state === "recording") recorder.current.stop();
   }
 
@@ -715,20 +767,34 @@ export function CloneForm() {
           <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${recording ? "animate-pulse bg-state-rose" : "bg-ink-faint/40"}`} aria-hidden="true" />
         </div>
         <div className="mt-5 rounded-xl border border-base-border bg-base-bg p-4" aria-live="polite">
-          <p className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-ink-faint">Read this sample</p>
-          <p className="flex flex-wrap gap-x-2 gap-y-2 text-lg leading-8 text-ink-muted">
-            {CLONE_SAMPLE_WORDS.map((word, index) => (
-              <span key={`${word}-${index}`} className={`inline-block transition duration-300 ${index === activeWord ? "scale-110 font-semibold text-audio-mint" : index < activeWord ? "text-ink-faint" : "text-ink-primary"}`}>{word}</span>
-            ))}
-          </p>
-          {recording && (
-            <p className="mt-4 border-t border-base-border pt-3 text-sm font-medium text-audio-mint">
-              {recordingState === "waiting_for_speech" ? "Trying to listen…" : "Listening…"}
-            </p>
+          {recordingState === "countdown" ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-6">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-ink-faint">Get ready</p>
+              <span key={countdown} className="animate-pulse text-6xl font-bold tabular-nums text-audio-mint transition-transform duration-300">
+                {countdown}
+              </span>
+            </div>
+          ) : (
+            <>
+              <p className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-ink-faint">Read this sample</p>
+              <p className="flex flex-wrap gap-x-2 gap-y-2 text-lg leading-8 text-ink-muted">
+                {CLONE_SAMPLE_WORDS.map((word, index) => (
+                  <span key={`${word}-${index}`} className={`inline-block transition duration-300 ${index === activeWord ? "scale-110 font-semibold text-audio-mint" : index < activeWord ? "text-ink-faint" : "text-ink-primary"}`}>{word}</span>
+                ))}
+              </p>
+              {recording && (
+                <p className="mt-4 border-t border-base-border pt-3 text-sm font-medium text-audio-mint">
+                  Listening…
+                </p>
+              )}
+            </>
           )}
         </div>
         <button type="button" onClick={recording ? stopRecording : startRecording} disabled={loading} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-audio-mint/40 bg-audio-mint/10 px-4 py-3 text-sm font-medium text-audio-mint transition hover:bg-audio-mint/20 disabled:cursor-not-allowed disabled:opacity-50">
-          <IconMic className="h-4 w-4" />{recording ? "Finish recording" : recordingState === "processing" || loading ? "Creating your cloned voice…" : "Record voice sample"}
+          <IconMic className="h-4 w-4" />
+          {recording
+            ? recordingState === "countdown" ? "Cancel" : "Finish recording"
+            : recordingState === "processing" || loading ? "Creating your cloned voice…" : "Record voice sample"}
         </button>
       </div>
       <button

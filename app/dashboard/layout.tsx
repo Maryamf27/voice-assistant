@@ -8,13 +8,15 @@ import { SubscriptionProvider } from "@/components/subscription-provider";
 import { AdsterraProvider } from "@/components/adsterra";
 import { ADSTERRA_CONFIGURED } from "@/lib/adsterra";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 export default async function DashboardLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const user = await getCurrentUser();
   if (user === null) redirect("/login");
 
+  // getUserSubscription is wrapped in React's cache() (see lib/entitlements.ts),
+  // keyed by this same user.id argument — so when a page like
+  // /dashboard/subscriptions or /dashboard/premium also calls
+  // getUserSubscription(user.id) for the same request, it reuses this result
+  // instead of hitting Supabase a second time. Call it the same way here.
   const subscription = await getUserSubscription(user.id);
   const isPremium = subscription?.plan === "premium" && subscription.subscriptionStatus === "active";
   // Ads are shown only when Adsterra is configured AND the server positively identified a Free user.

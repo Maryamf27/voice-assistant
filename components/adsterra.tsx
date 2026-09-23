@@ -18,7 +18,19 @@ import {
 
 const AdsVisibleContext = createContext(false);
 
-
+/**
+ * Controls when Free users become eligible for Adsterra ads.
+ *
+ * The timer runs once when `enabled` becomes true (once per dashboard session). It is not
+ * restarted by route changes, re-renders, or by individual AdSlot mounts - a slot that appears
+ * later (e.g. while a voice is being cloned) uses whatever eligibility state the session already
+ * reached.
+ *
+ * Once eligible, a single interstitial ad (a centered dialog over a blurred backdrop) is shown
+ * once for the session, on top of whatever inline AdSlot placements exist on the page. It closes
+ * on its own X button, a backdrop click, or Escape, and does not reappear until the dashboard
+ * layout remounts (e.g. a full page reload).
+ */
 export function AdsterraProvider({ enabled, children }: { enabled: boolean; children: ReactNode }) {
   const [eligible, setEligible] = useState(false);
   const [interstitialDismissed, setInterstitialDismissed] = useState(false);
@@ -40,6 +52,23 @@ export function AdsterraProvider({ enabled, children }: { enabled: boolean; chil
   );
 }
 
+/**
+ * A single Adsterra ad unit.
+ *
+ * Every ad is rendered inside a sandboxed `<iframe srcDoc>` instead of being injected straight
+ * into the page. Two reasons:
+ *   1. Adsterra's snippets use `document.write`, which modern browsers refuse to run from a
+ *      script tag that was appended into an already-loaded document (React mounts everything
+ *      after load). A fresh iframe document is always "still loading" from the ad script's point
+ *      of view, so `document.write` works the way Adsterra expects.
+ *   2. The sandbox is intentionally missing `allow-top-navigation` / `allow-top-navigation-by-user-
+ *      activation`. That means an ad creative can open its landing page in a new tab when the user
+ *      clicks it (`allow-popups`), but it is structurally unable to redirect the app itself. This
+ *      is what keeps "the app" from ever getting hijacked to an advertiser's site.
+ *
+ * Renders nothing for Premium users, before the eligibility delay elapses, or when the
+ * corresponding ad unit isn't configured (see lib/adsterra.ts).
+ */
 export function AdSlot({
   className = "",
   variant = "banner",
@@ -55,6 +84,11 @@ export function AdSlot({
   return <AdFrame className={className} width={frame.width} height={frame.height} html={frame.html} />;
 }
 
+/**
+ * The popup ad: a centered card over a dark, blurred backdrop, portaled to <body> so it sits above
+ * everything else in the dashboard. Closing it (X button, backdrop click, or Escape) dismisses it
+ * for the rest of the session - it never re-appears mid-session, only after a fresh page load.
+ */
 function AdInterstitial({ onClose }: { onClose: () => void }) {
   const frame = buildAdFrame("banner") ?? buildAdFrame("native");
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -137,6 +171,7 @@ function buildAdFrame(variant: "banner" | "native"): { html: string; width?: num
 const FRAME_BASE_STYLE = `html,body{margin:0;padding:0;background:transparent;overflow:hidden;}`;
 
 function buildBannerHtml(key: string, scriptSrc: string, width: number, height: number): string {
+  // JSON.stringify keeps this safe even though the inputs are already validated in lib/adsterra.ts.
   const atOptions = JSON.stringify({ key, format: "iframe", height, width, params: {} });
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>${FRAME_BASE_STYLE}</style></head><body>
 <script>atOptions = ${atOptions};</script>
@@ -172,6 +207,8 @@ function AdFrame({
           srcDoc={html}
           title="Advertisement"
           scrolling="no"
+          // No allow-top-navigation(-by-user-activation): the ad can open a click-through in a new
+          // tab (allow-popups) but can never redirect the app itself.
           sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
           style={{ width: "100%", height, border: "none", display: "block" }}
         />

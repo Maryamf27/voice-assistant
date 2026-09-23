@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
 import type {
@@ -15,7 +16,7 @@ export {
   countTTSCharacters,
 } from "@/lib/entitlement-constants";
 
-export async function getUserSubscription(
+export const getUserSubscription = cache(async function getUserSubscription(
   userId?: string,
 ): Promise<UserSubscription | null> {
   const user = await getCurrentUser();
@@ -80,7 +81,7 @@ export async function getUserSubscription(
 
     packageId,
   };
-}
+});
 
 export async function getUserPlan(
   userId?: string,
@@ -119,7 +120,7 @@ export async function getTTSAccess(
   };
 }
 
-export async function getSubscriptionHistory(
+export const getSubscriptionHistory = cache(async function getSubscriptionHistory(
   userId?: string,
 ): Promise<SubscriptionHistoryItem[]> {
   const user = await getCurrentUser();
@@ -187,4 +188,4 @@ export async function getSubscriptionHistory(
       createdAt: row.created_at,
     };
   });
-}
+});

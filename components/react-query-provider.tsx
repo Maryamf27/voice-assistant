@@ -7,11 +7,13 @@ function makeQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 7 * 60 * 1000,
-        gcTime: 25 * 60 * 1000,
+        // Dashboard data is user-scoped, so keep it in the browser cache rather
+        // than Next.js's shared server cache. Mutations explicitly invalidate it.
+        staleTime: Infinity,
+        gcTime: 30 * 60 * 1000,
         refetchOnWindowFocus: false,
-        refetchOnMount: true,
-        refetchOnReconnect: true,
+        refetchOnMount: false,
+        refetchOnReconnect: false,
         retry: (failureCount, error: unknown) => {
           const status = (error as { status?: number })?.status;
           if (status && status >= 400 && status < 500) return false;

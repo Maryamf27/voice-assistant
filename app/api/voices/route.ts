@@ -11,7 +11,7 @@ export async function GET() {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("voices")
-    .select("id, name, type")
+    .select("id, name, type, fish_reference_id, created_at")
     .eq("user_id", user.id)
     .not("fish_reference_id", "is", null)
     .order("created_at", { ascending: false });
@@ -24,5 +24,13 @@ export async function GET() {
     );
   }
 
-  return NextResponse.json((data ?? []).map((v) => ({ id: v.id, name: v.name, type: v.type })));
+  return NextResponse.json(
+    (data ?? []).map((v) => ({
+      id: v.id,
+      name: v.name,
+      type: v.type,
+      fish_reference_id: v.fish_reference_id,
+      created_at: v.created_at,
+    }))
+  );
 }

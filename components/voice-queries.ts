@@ -32,7 +32,13 @@ export type LibrarySearchPage = {
   page: number;
 };
 
-export type MyVoice = { id: string; name: string; type: string };
+export type MyVoice = {
+  id: string;
+  name: string;
+  type: string;
+  fishReferenceId: string | null;
+  createdAt: string;
+};
 
 const LIBRARY_QUERY_KEY_BASE = "voice-library" as const;
 const MY_VOICES_QUERY_KEY_BASE = "my-voices" as const;
@@ -163,7 +169,20 @@ export async function fetchMyVoices(): Promise<MyVoice[]> {
     error.status = res.status;
     throw error;
   }
-  return (await res.json()) as MyVoice[];
+  const data = (await res.json()) as Array<{
+    id: string;
+    name: string;
+    type: string;
+    fish_reference_id: string | null;
+    created_at: string;
+  }>;
+  return data.map((voice) => ({
+    id: voice.id,
+    name: voice.name,
+    type: voice.type,
+    fishReferenceId: voice.fish_reference_id,
+    createdAt: voice.created_at,
+  }));
 }
 
 export function useMyVoices(userId: string | null | undefined) {
@@ -205,7 +224,7 @@ export function useInvalidateMyVoices() {
   return (userId: string | null | undefined) => {
     if (!userId) return;
     return queryClient.invalidateQueries({
-      queryKey: myVoicesQueryKey(userId),
+      queryKey: [MY_VOICES_QUERY_KEY_BASE],
       type: "all",
     });
   };

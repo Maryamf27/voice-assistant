@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, StatusBadge, Equalizer, Waveform } from "@/components/ui";
 import { ConfirmDialog } from "@/components/dialog";
 import { Select } from "@/components/select";
@@ -34,75 +35,112 @@ type HistoryItem = {
 type Pagination = { page: number; limit: number; total: number; totalPages: number };
 type HistoryResponse = { items: HistoryItem[]; pagination: Pagination };
 
+const HISTORY_QUERY_KEY_BASE = "history" as const;
+
+type HistoryFilter = { q: string; voiceType: string; page: number };
+
+function historyQueryKey(filter: HistoryFilter) {
+  return [HISTORY_QUERY_KEY_BASE, filter] as const;
+}
+
+async function fetchHistory(filter: HistoryFilter): Promise<HistoryResponse> {
+  const params = new URLSearchParams();
+  if (filter.q) params.set("q", filter.q);
+  if (filter.voiceType !== "all") params.set("voiceType", filter.voiceType);
+  params.set("page", String(filter.page));
+  params.set("limit", String(PAGE_SIZE));
+
+  const response = await fetch(`/api/history?${params.toString()}`);
+  if (!response.ok) {
+    let message = "Unable to load history right now.";
+    try {
+      const body = (await response.json()) as { error?: string };
+      if (body.error) message = body.error;
+    } catch {
+      /* Use the default message. */
+    }
+    const failure = new Error(message) as Error & { status?: number };
+    failure.status = response.status;
+    throw failure;
+  }
+  return (await response.json()) as HistoryResponse;
+}
+
+/** Mirrors the original behaviour: debounce while typing, but react instantly when the box is cleared. */
+function useDebouncedQuery(value: string, delayMs: number) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const handle = setTimeout(() => setDebounced(value), value ? delayMs : 0);
+    return () => clearTimeout(handle);
+  }, [value, delayMs]);
+  return debounced;
+}
+
 export function HistoryList() {
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [voiceType, setVoiceType] = useState("all");
-  const [items, setItems] = useState<HistoryItem[]>([]);
-  const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: PAGE_SIZE, total: 0, totalPages: 1 });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const requestId = useRef(0);
+  const [page, setPage] = useState(1);
+  const debouncedQuery = useDebouncedQuery(query, SEARCH_DEBOUNCE_MS);
 
-  async function load(nextQuery: string, nextVoiceType: string, nextPage: number) {
-    const thisRequest = ++requestId.current;
-    setLoading(true);
-    setError("");
-
-    try {
-      const params = new URLSearchParams();
-      if (nextQuery.trim()) params.set("q", nextQuery.trim());
-      if (nextVoiceType !== "all") params.set("voiceType", nextVoiceType);
-      params.set("page", String(nextPage));
-      params.set("limit", String(PAGE_SIZE));
-
-      const response = await fetch(`/api/history?${params.toString()}`);
-      if (thisRequest !== requestId.current) return;
-
-      if (!response.ok) {
-        let message = "Unable to load history right now.";
-        try { const body = await response.json() as { error?: string }; if (body.error) message = body.error; } catch { /* Use the default message. */ }
-        setError(message);
-        return;
-      }
-
-      const data = await response.json() as HistoryResponse;
-      setItems(data.items);
-      setPagination(data.pagination);
-    } catch {
-      if (thisRequest !== requestId.current) return;
-      setError("A network error occurred. Please check your connection and try again.");
-    } finally {
-      if (thisRequest === requestId.current) setLoading(false);
-    }
+  // A new search or filter always restarts at page 1. Adjusting during render
+  // (rather than in an effect) means React re-renders with the corrected page
+  // before committing, so no request is ever issued for the stale page.
+  const filterKey = `${debouncedQuery.trim()}|${voiceType}`;
+  const [lastFilterKey, setLastFilterKey] = useState(filterKey);
+  if (lastFilterKey !== filterKey) {
+    setLastFilterKey(filterKey);
+    setPage(1);
   }
 
-  useEffect(() => {
-    const handle = setTimeout(() => { load(query, voiceType, 1); }, query ? SEARCH_DEBOUNCE_MS : 0);
-    return () => clearTimeout(handle);
-  }, [query, voiceType]);
+  const filter: HistoryFilter = { q: debouncedQuery.trim(), voiceType, page };
+
+  // Cached per filter+page, so navigating away and back to History renders the
+  // previous result immediately instead of showing the loading card again.
+  // keepPreviousData does the same for searching and paging within the page.
+  const historyQuery = useQuery({
+    queryKey: historyQueryKey(filter),
+    queryFn: () => fetchHistory(filter),
+    placeholderData: keepPreviousData,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 20 * 60 * 1000,
+  });
 
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
-  async function confirmDelete() {
-    if (!pendingDeleteId) return;
-    const id = pendingDeleteId;
-    setDeleting(true);
-    try {
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
       const response = await fetch(`/api/history/${id}`, { method: "DELETE" });
       if (!response.ok) {
         let message = "Unable to delete this item.";
-        try { const data = await response.json() as { error?: string }; if (data.error) message = data.error; } catch { /* Use the default message. */ }
-        setError(message);
-        return;
+        try {
+          const data = (await response.json()) as { error?: string };
+          if (data.error) message = data.error;
+        } catch {
+          /* Use the default message. */
+        }
+        throw new Error(message);
       }
+    },
+    onSuccess: () => {
       setPendingDeleteId(null);
-      load(query, voiceType, pagination.page);
-    } catch {
-      setError("A network error occurred. Please try again.");
-    } finally {
-      setDeleting(false);
-    }
+      void queryClient.invalidateQueries({ queryKey: [HISTORY_QUERY_KEY_BASE] });
+    },
+  });
+
+  const items = historyQuery.data?.items ?? [];
+  const pagination = historyQuery.data?.pagination ?? { page, limit: PAGE_SIZE, total: 0, totalPages: 1 };
+  const loading = historyQuery.isPending;
+  const deleting = deleteMutation.isPending;
+  const error = historyQuery.isError
+    ? (historyQuery.error as Error).message || "Unable to load history right now."
+    : deleteMutation.isError
+      ? (deleteMutation.error as Error).message
+      : "";
+
+  function confirmDelete() {
+    if (!pendingDeleteId) return;
+    deleteMutation.mutate(pendingDeleteId);
   }
 
   return (
@@ -165,7 +203,7 @@ export function HistoryList() {
         <div className="mt-6 flex items-center justify-center gap-3 text-sm text-ink-muted">
           <button
             type="button"
-            onClick={() => load(query, voiceType, pagination.page - 1)}
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
             disabled={pagination.page <= 1}
             className="rounded-lg border border-base-border px-3 py-1.5 disabled:opacity-40"
           >
@@ -174,7 +212,7 @@ export function HistoryList() {
           <span>Page {pagination.page} of {pagination.totalPages}</span>
           <button
             type="button"
-            onClick={() => load(query, voiceType, pagination.page + 1)}
+            onClick={() => setPage((current) => Math.min(pagination.totalPages, current + 1))}
             disabled={pagination.page >= pagination.totalPages}
             className="rounded-lg border border-base-border px-3 py-1.5 disabled:opacity-40"
           >

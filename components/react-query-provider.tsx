@@ -7,8 +7,6 @@ function makeQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        // Dashboard data is user-scoped, so keep it in the browser cache rather
-        // than Next.js's shared server cache. Mutations explicitly invalidate it.
         staleTime: Infinity,
         gcTime: 30 * 60 * 1000,
         refetchOnWindowFocus: false,

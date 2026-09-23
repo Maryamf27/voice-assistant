@@ -35,6 +35,7 @@ export function EmptyState({ title, description, action }: { title: string; desc
       {action && (
         <Link
           href={action.href}
+          prefetch
           className="relative mt-6 inline-flex items-center gap-1.5 rounded-lg bg-brand-violet px-4 py-2.5 text-sm font-medium text-white shadow-glowViolet transition hover:bg-brand-violetDim"
         >
           {action.label}
@@ -62,6 +63,7 @@ export function QuickActionCard({ title, description, href, icon }: { title: str
   return (
     <Link
       href={href}
+      prefetch
       className="group relative overflow-hidden rounded-2xl border border-base-border bg-base-card/90 p-5 shadow-panel transition duration-200 hover:-translate-y-0.5 hover:border-brand-violet/50 hover:shadow-glowViolet"
     >
       <div className="pointer-events-none absolute inset-0 bg-aurora-violet opacity-0 transition-opacity duration-300 group-hover:opacity-100" />

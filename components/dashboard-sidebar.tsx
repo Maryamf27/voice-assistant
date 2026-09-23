@@ -98,6 +98,7 @@ function Navigation({
       <div>
         <Link
           href="/dashboard"
+          prefetch
           onClick={onNavigate}
           className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition ${
             path === "/dashboard"
@@ -127,6 +128,7 @@ function Navigation({
                 <Link
                   key={link.href}
                   href={href}
+                  prefetch
                   onClick={onNavigate}
                   onMouseEnter={isLibrary ? scheduleLibraryPrefetch : undefined}
                   onMouseMove={isLibrary ? scheduleLibraryPrefetch : undefined}
@@ -162,7 +164,7 @@ function Navigation({
 
 function Brand() {
   return (
-    <Link href="/dashboard" className="mb-8 flex items-center gap-2.5">
+    <Link href="/dashboard" prefetch className="mb-8 flex items-center gap-2.5">
       <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-violet to-audio-mint text-white shadow-glowViolet">
         <span className="flex h-3.5 items-end gap-[2px]">
           <span className="h-[40%] w-[2.5px] rounded-full bg-white/90" />
@@ -181,6 +183,7 @@ function PremiumAction({ isPremium }: { isPremium: boolean }) {
   return (
     <Link
       href="/dashboard/premium"
+      prefetch
       className="flex items-center gap-3 rounded-xl border border-amber-300/20 bg-amber-300/[0.04] px-3 py-2.5 text-amber-200/90 transition hover:border-amber-300/40 hover:bg-amber-300/[0.08]"
     >
       <IconTag className="h-4 w-4 shrink-0" />

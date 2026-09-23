@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, getSessionProfile } from "@/lib/auth";
 import type {
   Plan,
   PremiumPackageId,
@@ -19,7 +19,7 @@ export {
 export const getUserSubscription = cache(async function getUserSubscription(
   userId?: string,
 ): Promise<UserSubscription | null> {
-  const user = await getCurrentUser();
+  const { user, profile } = await getSessionProfile();
 
   const authenticatedUserId = user?.id;
   const requestedUserId = userId ?? authenticatedUserId;
@@ -32,52 +32,31 @@ export const getUserSubscription = cache(async function getUserSubscription(
     return null;
   }
 
-  const supabase = await createSupabaseServerClient();
+  if (!profile) return null;
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(
-      `
-        plan,
-        subscription_status,
-        lemonsqueezy_subscription_id,
-        lemonsqueezy_customer_id,
-        lemonsqueezy_variant_id,
-        subscription_interval,
-        subscription_ends_at
-      `,
-    )
-    .eq("id", authenticatedUserId)
-    .single();
-
-  if (error || !data) {
-    console.error("Could not load user subscription:", error);
-    return null;
-  }
-
-  const rawInterval = data.subscription_interval as string | null;
+  const rawInterval = profile.subscription_interval as string | null;
   const packageId: PremiumPackageId | null =
     rawInterval === "monthly" || rawInterval === "yearly"
       ? rawInterval
       : null;
 
   return {
-    plan: data.plan as Plan,
+    plan: profile.plan as Plan,
 
     subscriptionStatus:
-      data.subscription_status as SubscriptionStatus,
+      profile.subscription_status as SubscriptionStatus,
 
     subscriptionId:
-      data.lemonsqueezy_subscription_id,
+      profile.lemonsqueezy_subscription_id,
 
     customerId:
-      data.lemonsqueezy_customer_id,
+      profile.lemonsqueezy_customer_id,
 
     endsAt:
-      data.subscription_ends_at,
+      profile.subscription_ends_at,
 
     variantId:
-      data.lemonsqueezy_variant_id,
+      profile.lemonsqueezy_variant_id,
 
     packageId,
   };

@@ -5,7 +5,6 @@ import { PageIntro, Card, EmptyState, Waveform, IconTile } from "@/components/ui
 import { VoiceCardActions } from "@/components/voice-card-actions";
 import { useMyVoices } from "@/components/voice-queries";
 import { IconMic, IconSparkle, IconLibrary } from "@/components/icons";
-import { AdSlot } from "@/components/adsterra";
 
 type VoiceItem = { id: string; name: string; type: string; fishReferenceId: string | null; createdAt: string };
 
@@ -50,7 +49,6 @@ export default function VoicesPage() {
           })}
         </div>
       )}
-      <AdSlot className="mt-8" variant="native" />
     </>
   );
 }

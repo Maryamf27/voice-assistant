@@ -3,7 +3,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
 import { PageIntro, QuickActionCard, StatCard, EmptyState, StatusBadge, Waveform } from "@/components/ui";
 import { IconWaveform, IconMic, IconSparkle, IconLibrary, IconArrowRight, IconClock } from "@/components/icons";
-import { AdSlot } from "@/components/adsterra";
 
 type RecentGeneration = { id: string; text: string; status: string; createdAt: string };
 
@@ -99,7 +98,7 @@ export default async function DashboardPage() {
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-ink-primary">Recent activity</h2>
           {recent.length > 0 && (
-            <Link href="/dashboard/history" className="inline-flex items-center gap-1 text-sm font-medium text-brand-violetSoft hover:text-brand-violet">
+            <Link href="/dashboard/history" prefetch className="inline-flex items-center gap-1 text-sm font-medium text-brand-violetSoft hover:text-brand-violet">
               View all <IconArrowRight className="h-3.5 w-3.5" />
             </Link>
           )}
@@ -125,7 +124,6 @@ export default async function DashboardPage() {
           </div>
         )}
       </section>
-      <AdSlot className="mt-8" variant="native" />
     </>
   );
 }

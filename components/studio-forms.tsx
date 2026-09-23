@@ -8,7 +8,6 @@ import { AudioPlayer } from "@/components/audio-playback";
 import { FREE_TTS_CHARACTER_LIMIT, MAX_TTS_REQUEST_LENGTH } from "@/lib/entitlement-constants";
 import { useMyVoices, useInvalidateMyVoices, type MyVoice } from "@/components/voice-queries";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { AdSlot } from "@/components/adsterra";
 
 const MAX_TEXT_LENGTH = MAX_TTS_REQUEST_LENGTH;
 
@@ -169,8 +168,6 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
                   <Equalizer size="md" />
                   <p className="text-xs text-ink-faint">Rendering your audio…</p>
                 </div>
-                {/* Fills the wait with an ad instead of dead space; Premium users never see this. */}
-                <AdSlot variant="banner" className="mx-auto" />
               </div>
             )}
             {!loading && audioUrl && (
@@ -410,11 +407,6 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
           <p className="mt-3 text-xs leading-5 text-ink-faint">
             {voices.length > 0 ? "Your saved and authorized voices are available here." : "Your saved and authorized voices will appear here once ready for text-to-speech."}
           </p>
-          {/* Placed inside the Voice card, right below the fold-safe content, so Free users see it
-              without needing to scroll the sidebar. */}
-          <div className="mt-5 border-t border-base-border pt-5">
-            <AdSlot variant="banner" />
-          </div>
         </Card>
       </aside>
     </div>
@@ -840,8 +832,6 @@ export function CloneForm() {
       {loading && (
         <div className="mt-4 flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-base-border p-6">
           <p className="text-xs text-ink-faint">Your voice is being cloned — this usually takes a moment.</p>
-          {/* Fills the wait with an ad instead of dead space; Premium users never see this. */}
-          <AdSlot variant="banner" />
         </div>
       )}
       {error && (
@@ -979,8 +969,6 @@ export function DesignForm() {
           <div className="mt-4 flex min-h-72 flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-base-border p-6">
             <Equalizer size="md" />
             <p className="text-sm text-ink-faint">Shaping voice candidates…</p>
-            {/* Fills the wait with an ad instead of dead space; Premium users never see this. */}
-            <AdSlot variant="banner" />
           </div>
         )}
         {!loading && candidates.length === 0 && (

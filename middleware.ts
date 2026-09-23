@@ -24,9 +24,9 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  const { data } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getClaims();
 
-  if (!data.user) {
+  if (!data?.claims?.sub) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

@@ -2,17 +2,19 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   experimental: {
-    // Next.js defaults the client-side Router Cache for dynamically-rendered
-    // routes (which the whole /dashboard tree is, since it reads cookies for
-    // auth) to a 0s stale time — every single navigation, including clicking
-    // back to a page you were just on, refetches from the server.
-    // This keeps a navigated-away-from page's RSC payload in the browser's
-    // Router Cache for 30s (and Link prefetch={true}/router.prefetch data for
-    // 3 min), so switching between dashboard pages repeatedly is instant
-    // instead of re-hitting Supabase every time.
+    // The whole /dashboard tree renders dynamically (it reads cookies for auth),
+    // and Next.js gives dynamically-rendered routes a 0s client Router Cache by
+    // default — every navigation, including clicking back to a page you were
+    // just on, refetches from the server.
+    //
+    // `dynamic` covers pages reached by an ordinary prefetch; `static` covers
+    // pages prefetched with `prefetch={true}`, which is what the dashboard
+    // sidebar uses. Both are set well above a browsing session's back-and-forth
+    // so that re-visiting a dashboard page is served from memory with no
+    // network round trip and therefore no loading state at all.
     staleTimes: {
-      dynamic: 30,
-      static: 180,
+      dynamic: 180,
+      static: 300,
     },
   },
 };

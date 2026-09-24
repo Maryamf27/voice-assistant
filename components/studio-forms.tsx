@@ -1,9 +1,10 @@
 "use client";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, ProviderUnavailableNotice, Equalizer, Waveform } from "@/components/ui";
 import { Select } from "@/components/select";
-import { IconUpload, IconCheck, IconAlert, IconWaveform, IconMic, IconSparkle, IconLibrary, IconVoices, IconChevronRight } from "@/components/icons";
+import { IconUpload, IconCheck, IconAlert, IconWaveform, IconMic, IconSparkle, IconLibrary, IconVoices, IconSearch } from "@/components/icons";
 import { AudioPlayer } from "@/components/audio-playback";
 import { FREE_TTS_CHARACTER_LIMIT, MAX_TTS_REQUEST_LENGTH } from "@/lib/entitlement-constants";
 import { useMyVoices, useInvalidateMyVoices, type MyVoice } from "@/components/voice-queries";
@@ -13,7 +14,6 @@ import { EMOTION_HELP, EMOTION_LABELS, EXPRESSION_LABELS, VOICE_EMOTIONS, VOICE_
 const MAX_TEXT_LENGTH = MAX_TTS_REQUEST_LENGTH;
 
 type TtsVoiceOption = { id: string; name: string; type: string };
-type MobileTab = "library" | "my";
 
 async function getTtsUserId(): Promise<string | null> {
   try {
@@ -32,8 +32,6 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
   const [voiceId, setVoiceId] = useState(initialVoiceId);
   const [emotion, setEmotion] = useState<VoiceEmotion>("neutral");
   const [expression, setExpression] = useState<VoiceExpression>("none");
-  const [myVoicesOpen, setMyVoicesOpen] = useState(false);
-  const [mobileTab, setMobileTab] = useState<MobileTab>("library");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [unavailable, setUnavailable] = useState("");
@@ -235,202 +233,201 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
               </p>
             </div>
           )}
-          <div className="mt-4 hidden sm:block">
-            <div className="overflow-hidden rounded-xl border border-base-border bg-base-bg">
-              <div className="grid grid-cols-2">
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-2 border-b border-base-border px-4 py-3">
-                    <IconLibrary className="h-4 w-4 text-brand-violetSoft" />
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-muted">Voice Library</span>
-                  </div>
-                  <div className="max-h-64 overflow-y-auto p-2">
-                    <button
-                      type="button"
-                      onClick={() => setVoiceId("")}
-                      className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
-                        voiceId === "" ? "bg-brand-violet/15 text-brand-violetSoft" : "text-ink-muted hover:bg-base-surface hover:text-ink-primary"
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        <IconWaveform className="h-3.5 w-3.5 shrink-0" />
-                        Default voice
-                      </span>
-                      {voiceId === "" && <IconCheck className="h-3.5 w-3.5 shrink-0" />}
-                    </button>
-                    {libraryVoices.length === 0 ? (
-                      <p className="px-2.5 py-3 text-xs leading-5 text-ink-faint">No library voices available.</p>
-                    ) : (
-                      libraryVoices.map((voice) => (
-                        <button
-                          key={voice.id}
-                          type="button"
-                          onClick={() => setVoiceId(voice.id)}
-                          className={`mt-1 flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
-                            voiceId === voice.id ? "bg-brand-violet/15 text-brand-violetSoft" : "text-ink-muted hover:bg-base-surface hover:text-ink-primary"
-                          }`}
-                        >
-                          <span className="flex min-w-0 items-center gap-2">
-                            <IconWaveform className="h-3.5 w-3.5 shrink-0" />
-                            <span className="truncate">{voice.name}</span>
-                          </span>
-                          {voiceId === voice.id && <IconCheck className="h-3.5 w-3.5 shrink-0" />}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
-                <div className="relative flex flex-col border-l border-base-border">
-                  <button
-                    type="button"
-                    onClick={() => setMyVoicesOpen(!myVoicesOpen)}
-                    className={`flex items-center justify-between gap-2 border-b border-base-border px-4 py-3 text-left transition ${
-                      myVoicesOpen ? "bg-audio-mint/5" : "hover:bg-base-surface"
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <IconVoices className={`h-4 w-4 ${myVoicesOpen ? "text-audio-mint" : "text-audio-mint/70"}`} />
-                      <span className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${myVoicesOpen ? "text-audio-mint" : "text-ink-muted"}`}>My Voices</span>
-                    </span>
-                    <IconChevronRight className={`h-3.5 w-3.5 shrink-0 transition-transform ${myVoicesOpen ? "rotate-90 text-audio-mint" : "text-ink-faint"}`} />
-                  </button>
-                  <div className="flex-1 max-h-64 overflow-y-auto p-2">
-                    {!myVoicesOpen ? (
-                      <button
-                        type="button"
-                        onClick={() => setMyVoicesOpen(true)}
-                        className="flex w-full items-center justify-between gap-2 rounded-lg border border-audio-mint/20 bg-audio-mint/[0.03] px-3 py-5 text-left transition hover:bg-audio-mint/[0.06]"
-                      >
-                        <span>
-                          <p className="text-sm font-medium text-audio-mint">My Voices</p>
-                          <p className="mt-0.5 text-xs text-ink-faint">{myVoices.length} saved {myVoices.length === 1 ? "voice" : "voices"}</p>
-                        </span>
-                        <IconChevronRight className="h-4 w-4 shrink-0 text-audio-mint" />
-                      </button>
-                    ) : myVoices.length === 0 ? (
-                      <div className="px-2.5 py-4 text-center">
-                        <p className="text-sm font-medium text-ink-primary">No personal voices yet</p>
-                        <p className="mt-1 text-xs leading-5 text-ink-faint">Clone or record a voice to see it here.</p>
-                      </div>
-                    ) : (
-                      myVoices.map((voice) => (
-                        <button
-                          key={voice.id}
-                          type="button"
-                          onClick={() => setVoiceId(voice.id)}
-                          className={`mt-1 flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
-                            voiceId === voice.id ? "bg-audio-mint/15 text-audio-mint" : "text-ink-muted hover:bg-base-surface hover:text-ink-primary"
-                          }`}
-                        >
-                          <span className="flex min-w-0 items-center gap-2">
-                            <IconMic className="h-3.5 w-3.5 shrink-0" />
-                            <span className="truncate">{voice.name}</span>
-                          </span>
-                          {voiceId === voice.id && <IconCheck className="h-3.5 w-3.5 shrink-0" />}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="mt-4 sm:hidden">
-            <div className="overflow-hidden rounded-xl border border-base-border bg-base-bg">
-              <div className="grid grid-cols-2 border-b border-base-border">
-                <button
-                  type="button"
-                  onClick={() => setMobileTab("library")}
-                  className={`flex items-center justify-center gap-2 px-3 py-3 text-left transition ${
-                    mobileTab === "library" ? "bg-brand-violet/10 border-b-2 border-b-brand-violet" : "hover:bg-base-surface"
-                  }`}
-                >
-                  <IconLibrary className={`h-4 w-4 ${mobileTab === "library" ? "text-brand-violetSoft" : "text-ink-faint"}`} />
-                  <span className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${mobileTab === "library" ? "text-brand-violetSoft" : "text-ink-muted"}`}>Library</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMobileTab("my")}
-                  className={`flex items-center justify-center gap-2 px-3 py-3 text-left transition ${
-                    mobileTab === "my" ? "bg-audio-mint/10 border-b-2 border-b-audio-mint" : "hover:bg-base-surface"
-                  }`}
-                >
-                  <IconVoices className={`h-4 w-4 ${mobileTab === "my" ? "text-audio-mint" : "text-ink-faint"}`} />
-                  <span className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${mobileTab === "my" ? "text-audio-mint" : "text-ink-muted"}`}>My Voices</span>
-                </button>
-              </div>
-              <div className="max-h-72 overflow-y-auto p-2">
-                {mobileTab === "library" && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setVoiceId("")}
-                      className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
-                        voiceId === "" ? "bg-brand-violet/15 text-brand-violetSoft" : "text-ink-muted hover:bg-base-surface hover:text-ink-primary"
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        <IconWaveform className="h-3.5 w-3.5 shrink-0" />
-                        Default voice
-                      </span>
-                      {voiceId === "" && <IconCheck className="h-3.5 w-3.5 shrink-0" />}
-                    </button>
-                    {libraryVoices.length === 0 ? (
-                      <p className="px-2.5 py-3 text-xs leading-5 text-ink-faint">No library voices available.</p>
-                    ) : (
-                      libraryVoices.map((voice) => (
-                        <button
-                          key={voice.id}
-                          type="button"
-                          onClick={() => setVoiceId(voice.id)}
-                          className={`mt-1 flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
-                            voiceId === voice.id ? "bg-brand-violet/15 text-brand-violetSoft" : "text-ink-muted hover:bg-base-surface hover:text-ink-primary"
-                          }`}
-                        >
-                          <span className="flex min-w-0 items-center gap-2">
-                            <IconWaveform className="h-3.5 w-3.5 shrink-0" />
-                            <span className="truncate">{voice.name}</span>
-                          </span>
-                          {voiceId === voice.id && <IconCheck className="h-3.5 w-3.5 shrink-0" />}
-                        </button>
-                      ))
-                    )}
-                  </>
-                )}
-                {mobileTab === "my" && (
-                  <>
-                    {myVoices.length === 0 ? (
-                      <div className="px-2.5 py-6 text-center">
-                        <p className="text-sm font-medium text-ink-primary">No personal voices yet</p>
-                        <p className="mt-1 text-xs leading-5 text-ink-faint">Clone or record a voice to see it here.</p>
-                      </div>
-                    ) : (
-                      myVoices.map((voice) => (
-                        <button
-                          key={voice.id}
-                          type="button"
-                          onClick={() => setVoiceId(voice.id)}
-                          className={`mt-1 flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition ${
-                            voiceId === voice.id ? "bg-audio-mint/15 text-audio-mint" : "text-ink-muted hover:bg-base-surface hover:text-ink-primary"
-                          }`}
-                        >
-                          <span className="flex min-w-0 items-center gap-2">
-                            <IconMic className="h-3.5 w-3.5 shrink-0" />
-                            <span className="truncate">{voice.name}</span>
-                          </span>
-                          {voiceId === voice.id && <IconCheck className="h-3.5 w-3.5 shrink-0" />}
-                        </button>
-                      ))
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
+          <VoicePicker
+            voiceId={voiceId}
+            onSelect={setVoiceId}
+            libraryVoices={libraryVoices}
+            myVoices={myVoices}
+            initialTab={selectedVoice?.type === "personal" ? "my" : "library"}
+          />
           <p className="mt-3 text-xs leading-5 text-ink-faint">
             {voices.length > 0 ? "Your saved and authorized voices are available here." : "Your saved and authorized voices will appear here once ready for text-to-speech."}
           </p>
         </Card>
       </aside>
+    </div>
+  );
+}
+
+type VoicePickerTab = "library" | "my";
+const VOICE_LIST_SEARCH_THRESHOLD = 6;
+
+function VoiceRow({
+  selected,
+  onSelect,
+  icon,
+  name,
+  subtitle,
+  tone,
+}: {
+  selected: boolean;
+  onSelect: () => void;
+  icon: ReactNode;
+  name: string;
+  subtitle?: string;
+  tone: "violet" | "mint";
+}) {
+  const active =
+    tone === "violet"
+      ? "border-brand-violet/40 bg-brand-violet/15 text-brand-violetSoft"
+      : "border-audio-mint/40 bg-audio-mint/10 text-audio-mint";
+  const idle = "border-transparent text-ink-muted hover:bg-base-surface hover:text-ink-primary";
+  const badge = tone === "violet" ? "bg-brand-violet/20 text-brand-violetSoft" : "bg-audio-mint/15 text-audio-mint";
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      title={name}
+      className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition ${selected ? active : idle}`}
+    >
+      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${selected ? badge : "bg-base-surface text-ink-faint"}`}>
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className={`block truncate text-sm ${selected ? "font-semibold" : "font-medium"}`}>{name}</span>
+        {subtitle && <span className="block truncate text-[11px] text-ink-faint">{subtitle}</span>}
+      </span>
+      {selected && <IconCheck className="h-4 w-4 shrink-0" />}
+    </button>
+  );
+}
+
+function VoicePicker({
+  voiceId,
+  onSelect,
+  libraryVoices,
+  myVoices,
+  initialTab,
+}: {
+  voiceId: string;
+  onSelect: (id: string) => void;
+  libraryVoices: TtsVoiceOption[];
+  myVoices: TtsVoiceOption[];
+  initialTab: VoicePickerTab;
+}) {
+  const [tab, setTab] = useState<VoicePickerTab>(initialTab);
+  const [query, setQuery] = useState("");
+
+  const isLibrary = tab === "library";
+  const list = isLibrary ? libraryVoices : myVoices;
+  const normalizedQuery = query.trim().toLowerCase();
+  const visible = normalizedQuery ? list.filter((voice) => voice.name.toLowerCase().includes(normalizedQuery)) : list;
+  const showSearch = list.length > VOICE_LIST_SEARCH_THRESHOLD;
+
+  function switchTab(next: VoicePickerTab) {
+    setTab(next);
+    setQuery("");
+  }
+
+  const tabClass = (target: VoicePickerTab, tone: "violet" | "mint") =>
+    `flex items-center justify-center gap-2 rounded-md px-3 py-2 text-xs font-semibold transition ${
+      tab === target
+        ? tone === "violet"
+          ? "bg-brand-violet/15 text-brand-violetSoft shadow-sm"
+          : "bg-audio-mint/15 text-audio-mint shadow-sm"
+        : "text-ink-muted hover:text-ink-primary"
+    }`;
+
+  const countClass = (target: VoicePickerTab, tone: "violet" | "mint") =>
+    `rounded-full px-1.5 py-0.5 text-[10px] leading-none ${
+      tab === target
+        ? tone === "violet"
+          ? "bg-brand-violet/25 text-brand-violetSoft"
+          : "bg-audio-mint/20 text-audio-mint"
+        : "bg-base-surface text-ink-faint"
+    }`;
+
+  return (
+    <div className="mt-4 overflow-hidden rounded-xl border border-base-border bg-base-bg">
+      <div role="tablist" aria-label="Voice source" className="grid grid-cols-2 gap-1 border-b border-base-border p-1.5">
+        <button type="button" role="tab" aria-selected={isLibrary} onClick={() => switchTab("library")} className={tabClass("library", "violet")}>
+          <IconLibrary className="h-3.5 w-3.5" />
+          Library
+          <span className={countClass("library", "violet")}>{libraryVoices.length + 1}</span>
+        </button>
+        <button type="button" role="tab" aria-selected={!isLibrary} onClick={() => switchTab("my")} className={tabClass("my", "mint")}>
+          <IconVoices className="h-3.5 w-3.5" />
+          My Voices
+          <span className={countClass("my", "mint")}>{myVoices.length}</span>
+        </button>
+      </div>
+
+      {showSearch && (
+        <div className="border-b border-base-border p-2">
+          <label className="relative block">
+            <span className="sr-only">Search {isLibrary ? "library" : "my"} voices</span>
+            <IconSearch className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search voices"
+              className="w-full rounded-lg border border-base-border bg-base-surface py-2 pl-8 pr-3 text-xs text-ink-primary outline-none placeholder:text-ink-faint focus:border-brand-violet"
+            />
+          </label>
+        </div>
+      )}
+
+      <div className="max-h-80 space-y-1 overflow-y-auto p-2">
+        {isLibrary && !normalizedQuery && (
+          <VoiceRow
+            selected={voiceId === ""}
+            onSelect={() => onSelect("")}
+            icon={<IconWaveform className="h-4 w-4" />}
+            name="Default voice"
+            subtitle="Built-in"
+            tone="violet"
+          />
+        )}
+
+        {isLibrary && libraryVoices.length > 0 && (
+          <p className="px-1 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-faint">
+            Saved from library
+          </p>
+        )}
+
+        {visible.map((voice) => (
+          <VoiceRow
+            key={voice.id}
+            selected={voiceId === voice.id}
+            onSelect={() => onSelect(voice.id)}
+            icon={isLibrary ? <IconWaveform className="h-4 w-4" /> : <IconMic className="h-4 w-4" />}
+            name={voice.name}
+            tone={isLibrary ? "violet" : "mint"}
+          />
+        ))}
+
+        {list.length > 0 && visible.length === 0 && (
+          <p className="px-2 py-6 text-center text-xs text-ink-faint">No voices match your search.</p>
+        )}
+
+        {isLibrary && libraryVoices.length === 0 && (
+          <div className="px-3 py-4 text-center">
+            <p className="text-sm font-medium text-ink-primary">No library voices saved yet</p>
+            <p className="mt-1 text-xs leading-5 text-ink-faint">
+              Browse the Voice Library and choose <span className="text-ink-muted">Use in TTS</span> or <span className="text-ink-muted">Save</span> to add voices here.
+            </p>
+          </div>
+        )}
+
+        {!isLibrary && myVoices.length === 0 && (
+          <div className="px-3 py-6 text-center">
+            <p className="text-sm font-medium text-ink-primary">No personal voices yet</p>
+            <p className="mt-1 text-xs leading-5 text-ink-faint">Clone or record a voice to see it here.</p>
+          </div>
+        )}
+      </div>
+
+      {isLibrary && (
+        <div className="border-t border-base-border px-3 py-2.5">
+          <Link href="/dashboard/library" className="flex items-center justify-between text-xs font-medium text-brand-violetSoft transition hover:text-ink-primary">
+            Browse the full Voice Library
+            <span aria-hidden="true">→</span>
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

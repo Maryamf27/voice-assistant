@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import { LogoutButton } from "@/components/logout-button";
 import { usePrefetchLibrary } from "@/components/voice-queries";
 import {
@@ -211,9 +211,23 @@ function MobileDrawer({
   const closeRef = useRef<HTMLButtonElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
 
+  // Keep the latest onClose without making effects re-run when its identity changes.
+  const onCloseRef = useRef(onClose);
   useEffect(() => {
-    onClose();
-  }, [path, onClose]);
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  // Close the drawer only when the route actually changes.
+  useEffect(() => {
+    onCloseRef.current();
+  }, [path]);
+
+  // Portal target only exists on the client; avoids SSR/hydration mismatch.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -229,7 +243,7 @@ function MobileDrawer({
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
+        onCloseRef.current();
       }
     }
 
@@ -240,10 +254,9 @@ function MobileDrawer({
       document.body.style.overflow = previousOverflow;
       previouslyFocused.current?.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
 
-  // Prevent createPortal from being evaluated during SSR.
-  if (typeof document === "undefined") return null;
+  if (!mounted) return null;
 
   return createPortal(
     <div
@@ -303,6 +316,7 @@ export function DashboardSidebar({
   isPremium: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const closeDrawer = useCallback(() => setOpen(false), []);
   const path = usePathname();
   const searchParams = useSearchParams();
   const [librarySearch, setLibrarySearch] = useState("");
@@ -334,7 +348,7 @@ export function DashboardSidebar({
           open={open}
           path={path}
           libraryHref={libraryHref}
-          onClose={() => setOpen(false)}
+          onClose={closeDrawer}
           isPremium={isPremium}
         />
       </>

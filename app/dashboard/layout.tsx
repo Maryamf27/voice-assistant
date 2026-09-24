@@ -15,7 +15,7 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
   return (
     <ReactQueryProvider>
       <SubscriptionProvider isPremium={isPremium}>
-        <div className="h-screen overflow-hidden bg-base-bg md:flex">
+        <div className="flex h-dvh overflow-hidden bg-base-bg">
           <DashboardRevalidator />
           <DashboardSidebar isPremium={isPremium} />
           <div className="flex min-w-0 min-h-0 flex-1 flex-col">

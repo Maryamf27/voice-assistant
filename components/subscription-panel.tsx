@@ -61,10 +61,7 @@ export function SubscriptionPanel({
         currency: matchedPackage.currency,
       })
     : formatCurrencyPrice({
-        price:
-          subscription && typeof subscription === "object"
-            ? null
-            : null,
+        price: null,
         currency: null,
       });
 
@@ -167,8 +164,9 @@ export function SubscriptionPanel({
           <div>
             <dt className="text-ink-faint">Access through</dt>
             <dd className="mt-1 font-medium text-ink-primary">
-              {formatPakistanShortDate(subscription?.endsAt) ??
-                "Date unavailable"}
+              {formatPakistanShortDate(
+                subscription?.endsAt ?? subscription?.renewsAt
+              ) ?? "Date unavailable"}
             </dd>
           </div>
           <div>

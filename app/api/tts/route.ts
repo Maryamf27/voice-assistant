@@ -3,9 +3,10 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { FishAudioError, generateSpeech, isProviderCreditError } from "@/lib/fish-audio";
 import { StorageError, getAudioUrl, uploadAudio } from "@/lib/storage";
 import { countTTSCharacters, getTTSAccess, getTTSCharacterLimit, MAX_TTS_REQUEST_LENGTH } from "@/lib/entitlements";
+import { buildExpressionText, isSupportedStyleCombination, isVoiceEmotion, isVoiceExpression, type VoiceEmotion, type VoiceExpression } from "@/lib/tts-emotions";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-type TtsInput = { text?: unknown; voiceId?: unknown; model?: unknown };
+type TtsInput = { text?: unknown; voiceId?: unknown; model?: unknown; emotion?: unknown; expression?: unknown };
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
@@ -23,6 +24,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Enter text to generate speech." }, { status: 400 });
     }
     const text = input.text.trim();
+    const emotion: VoiceEmotion = input.emotion === undefined ? "neutral" : input.emotion as VoiceEmotion;
+    const expression: VoiceExpression = input.expression === undefined ? "none" : input.expression as VoiceExpression;
+    if (!isVoiceEmotion(emotion)) {
+      return NextResponse.json({ error: "The selected emotion is invalid." }, { status: 400 });
+    }
+    if (!isVoiceExpression(expression)) {
+      return NextResponse.json({ error: "The selected expression is invalid." }, { status: 400 });
+    }
+    if (!isSupportedStyleCombination(emotion, expression)) {
+      return NextResponse.json({ error: "That emotion and expression combination is not supported." }, { status: 400 });
+    }
     const access = await getTTSAccess(user.id);
     const characterCount = countTTSCharacters(text);
     const characterLimit = getTTSCharacterLimit(access.plan);
@@ -89,7 +101,8 @@ export async function POST(request: Request) {
     if (createError || !generation) throw createError ?? new Error("Could not create generation record.");
     generationId = generation.id;
 
-    const result = await generateSpeech({ text, model: configuredModel, referenceId: voice?.fish_reference_id ?? undefined });
+    const fishText = buildExpressionText(text, emotion, expression);
+    const result = await generateSpeech({ text: fishText, model: configuredModel, referenceId: voice?.fish_reference_id ?? undefined });
 
     let stored;
     try {

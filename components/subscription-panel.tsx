@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { PremiumPackageId, UserSubscription } from "@/lib/supabase/types";
 import type { SubscriptionHistoryItem } from "@/lib/supabase/types";
@@ -14,6 +15,7 @@ import {
 } from "@/lib/subscription-display";
 import { getPremiumPackage } from "@/lib/payment-provider";
 import { IconCheck } from "@/components/icons";
+import { getSubscriptionAccessState } from "@/lib/premium-access";
 
 export function SubscriptionPanel({
   subscription,
@@ -24,20 +26,41 @@ export function SubscriptionPanel({
   isPremium: boolean;
   history?: SubscriptionHistoryItem[] | null;
 }) {
+  const router = useRouter();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
+  const [providerCancellation, setProviderCancellation] = useState<Pick<
+    UserSubscription,
+    "subscriptionStatus" | "renewsAt" | "endsAt"
+  > | null>(null);
 
   async function cancelSubscription() {
     setPending(true);
     setMessage("");
     try {
       const response = await fetch("/api/billing/cancel", { method: "POST" });
-      const result = (await response.json()) as { error?: string };
+      const result = (await response.json()) as {
+        error?: string;
+        subscription?: { status?: string; renewsAt?: string | null; endsAt?: string | null };
+      };
+      if (result.subscription?.status === "cancelled") {
+        setProviderCancellation({
+          subscriptionStatus: "cancelled",
+          renewsAt: result.subscription.renewsAt ?? null,
+          endsAt: result.subscription.endsAt ?? null,
+        });
+      }
+
       if (!response.ok) throw new Error(result.error ?? "Unable to cancel subscription.");
+
+      const endsLabel = formatPakistanShortDate(result.subscription?.endsAt);
       setMessage(
-        "Cancellation requested. Premium access remains active until the billing period ends.",
+        endsLabel
+          ? `Subscription cancelled. Premium access remains available until ${endsLabel}.`
+          : "Subscription cancelled. Premium access remains available until the end of your paid period.",
       );
+      router.refresh();
     } catch (error) {
       setMessage(
         error instanceof Error
@@ -50,22 +73,30 @@ export function SubscriptionPanel({
     }
   }
 
+  const currentSubscription: UserSubscription | null =
+    subscription && providerCancellation
+      ? { ...subscription, ...providerCancellation }
+      : subscription;
+
   const effectivePackageId: PremiumPackageId | null =
-    subscription?.packageId ?? null;
+    currentSubscription?.packageId ?? null;
   const matchedPackage =
     effectivePackageId != null ? getPremiumPackage(effectivePackageId) : null;
   const displayInterval = billingIntervalLabel(effectivePackageId);
   const displayPrice = matchedPackage
     ? formatCurrencyPrice({
-        price: matchedPackage.priceAmount,
-        currency: matchedPackage.currency,
-      })
+      price: matchedPackage.priceAmount,
+      currency: matchedPackage.currency,
+    })
     : formatCurrencyPrice({
-        price: null,
-        currency: null,
-      });
+      price: null,
+      currency: null,
+    });
 
   if (!isPremium) {
+    const hadPremium =
+      Boolean(subscription?.subscriptionId) || (history ?? []).length > 0;
+
     return (
       <section className="space-y-8">
         <section className="rounded-2xl border border-brand-violet/30 bg-brand-violet/[0.08] p-6">
@@ -73,17 +104,28 @@ export function SubscriptionPanel({
             Subscription
           </p>
           <h2 className="mt-3 text-xl font-semibold text-ink-primary">
-            Get Premium to unlock features
+            {hadPremium ? "Premium access has ended." : "Get Premium to unlock features"}
           </h2>
           <p className="mt-2 max-w-xl text-sm leading-6 text-ink-muted">
-            Unlock unrestricted Text to Speech generation and the full premium
-            workspace.
+            {hadPremium
+              ? "You are on the Free plan. Your saved voices and history are preserved. You can choose a Premium plan again at any time."
+              : "Unlock unrestricted Text to Speech generation and the full premium workspace."}
           </p>
+          <div className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
+            <div>
+              <p className="text-ink-faint">Next billing</p>
+              <p className="mt-1 font-medium text-ink-primary">—</p>
+            </div>
+            <div>
+              <p className="text-ink-faint">Access through</p>
+              <p className="mt-1 font-medium text-ink-primary">—</p>
+            </div>
+          </div>
           <Link
             href="/dashboard/premium"
             className="mt-5 inline-flex rounded-lg bg-brand-violet px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-violetDim"
           >
-            Get Premium
+            {hadPremium ? "View Premium plans" : "Get Premium"}
           </Link>
         </section>
         <SubscriptionHistory history={history ?? []} />
@@ -91,10 +133,23 @@ export function SubscriptionPanel({
     );
   }
 
-  const currentStatus = normalizeStatusLabel(
-    subscription?.subscriptionStatus === "active" ? "active" : null,
-  );
+  const isCancelled = getSubscriptionAccessState(currentSubscription) === "cancelled";
+  const currentStatus = normalizeStatusLabel(isCancelled ? "cancelled" : "active");
   const currentTone = statusTone(currentStatus);
+
+  const startedLabel =
+    formatPakistanShortDate(
+      history?.find(
+        (h) =>
+          h.subscriptionId &&
+          currentSubscription?.subscriptionId &&
+          h.subscriptionId === currentSubscription.subscriptionId,
+      )?.startedAt,
+    ) ?? "Date unavailable";
+  const endsLabel = formatPakistanShortDate(currentSubscription?.endsAt);
+  const renewsLabel = formatPakistanShortDate(currentSubscription?.renewsAt);
+  const nextBillingLabel = isCancelled ? "No future billing" : renewsLabel ?? "Date unavailable";
+  const accessThroughLabel = (isCancelled ? endsLabel : renewsLabel) ?? "Date unavailable";
 
   return (
     <section className="space-y-8">
@@ -108,7 +163,9 @@ export function SubscriptionPanel({
               Premium <span className="text-brand-violetSoft">· {displayInterval.interval}</span>
             </h2>
             <p className="mt-2 text-sm text-ink-muted">
-              Your premium workspace is unlocked.
+              {isCancelled
+                ? "Your current plan will remain available until your paid period ends."
+                : "Your premium workspace is unlocked."}
             </p>
           </div>
           <span
@@ -144,41 +201,41 @@ export function SubscriptionPanel({
           <div>
             <dt className="text-ink-faint">Started</dt>
             <dd className="mt-1 font-medium text-ink-primary">
-              {formatPakistanShortDate(
-                history?.find(
-                  (h) =>
-                    h.subscriptionId &&
-                    subscription?.subscriptionId &&
-                    h.subscriptionId === subscription.subscriptionId,
-                )?.startedAt ?? subscription?.endsAt ?? null,
-              ) ?? "Pending activation"}
+              {startedLabel}
             </dd>
           </div>
           <div>
             <dt className="text-ink-faint">Next billing</dt>
             <dd className="mt-1 font-medium text-ink-primary">
-              {formatPakistanShortDate(subscription?.renewsAt) ??
-                "Date unavailable"}
+              {nextBillingLabel}
             </dd>
           </div>
           <div>
             <dt className="text-ink-faint">Access through</dt>
             <dd className="mt-1 font-medium text-ink-primary">
-              {formatPakistanShortDate(
-                subscription?.endsAt ?? subscription?.renewsAt
-              ) ?? "Date unavailable"}
+              {accessThroughLabel}
             </dd>
           </div>
           <div>
             <dt className="text-ink-faint">Subscription ID</dt>
             <dd
               className="mt-1 truncate font-mono text-xs text-ink-muted"
-              title={subscription?.subscriptionId ?? undefined}
+              title={currentSubscription?.subscriptionId ?? undefined}
             >
-              {subscription?.subscriptionId ?? "—"}
+              {currentSubscription?.subscriptionId ?? "—"}
             </dd>
           </div>
         </dl>
+
+        {isCancelled && (
+          <p className="mt-5 rounded-lg border border-state-rose/25 bg-state-rose/[0.06] p-3 text-sm leading-6 text-ink-muted">
+            Your subscription has been cancelled. Premium access remains available until{" "}
+            <span className="font-medium text-ink-primary">
+              {endsLabel ?? "the end of your paid period"}
+            </span>
+            . No future renewal payment will be charged.
+          </p>
+        )}
 
         {message && (
           <p
@@ -190,14 +247,16 @@ export function SubscriptionPanel({
         )}
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setCancelOpen(true)}
-            disabled={pending || !subscription?.subscriptionId}
-            className="rounded-lg border border-state-rose/40 px-4 py-2.5 text-sm font-semibold text-state-rose transition hover:bg-state-rose/10 disabled:cursor-not-allowed disabled:opacity-100"
-          >
-            {pending ? "Cancelling…" : "Cancel subscription"}
-          </button>
+          {!isCancelled && (
+            <button
+              type="button"
+              onClick={() => setCancelOpen(true)}
+              disabled={pending || !currentSubscription?.subscriptionId}
+              className="rounded-lg border border-state-rose/40 px-4 py-2.5 text-sm font-semibold text-state-rose transition hover:bg-state-rose/10 disabled:cursor-not-allowed disabled:opacity-100"
+            >
+              {pending ? "Cancelling…" : "Cancel subscription"}
+            </button>
+          )}
           <Link
             href="/dashboard/premium"
             className="rounded-lg border border-brand-violet/30 bg-brand-violet/10 px-4 py-2.5 text-sm font-semibold text-brand-violetSoft transition hover:bg-brand-violet/20"
@@ -293,9 +352,9 @@ function SubscriptionHistory({ history }: { history: SubscriptionHistoryItem[] }
                   <span className="font-display text-lg font-semibold text-ink-primary">
                     {effectivePrice != null
                       ? formatCurrencyPrice({
-                          price: effectivePrice,
-                          currency: effectiveCurrency,
-                        })
+                        price: effectivePrice,
+                        currency: effectiveCurrency,
+                      })
                       : "Price unavailable"}
                   </span>
                   {interval.known && (

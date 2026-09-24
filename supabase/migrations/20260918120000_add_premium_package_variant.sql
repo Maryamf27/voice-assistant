@@ -1,5 +1,3 @@
--- Persist the Lemon Squeezy variant and resolved billing package so the pricing
--- page can distinguish monthly vs yearly without a live provider lookup.
 alter table public.profiles
   add column if not exists lemonsqueezy_variant_id text,
   add column if not exists premium_package_id text;

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { getCurrentUser } from "@/lib/auth";
-import { getUserSubscription } from "@/lib/entitlements";
+import { getUserSubscription, hasPremiumAccess } from "@/lib/entitlements";
 import { DashboardRevalidator } from "@/components/dashboard-revalidator";
 import { ReactQueryProvider } from "@/components/react-query-provider";
 import { SubscriptionProvider } from "@/components/subscription-provider";
@@ -11,7 +11,7 @@ export default async function DashboardLayout({ children }: Readonly<{ children:
   if (user === null) redirect("/login");
   
   const subscription = await getUserSubscription(user.id);
-  const isPremium = subscription?.plan === "premium" && subscription.subscriptionStatus === "active";
+  const isPremium = hasPremiumAccess(subscription);
   return (
     <ReactQueryProvider>
       <SubscriptionProvider isPremium={isPremium}>

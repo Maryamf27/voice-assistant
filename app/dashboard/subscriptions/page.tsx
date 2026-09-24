@@ -4,14 +4,13 @@ import { getCurrentUser } from "@/lib/auth";
 import {
   getUserSubscription,
   getSubscriptionHistory,
+  hasPremiumAccess,
 } from "@/lib/entitlements";
 
 export default async function SubscriptionsPage() {
   const user = await getCurrentUser();
   const subscription = user ? await getUserSubscription(user.id) : null;
-  const isPremium =
-    subscription?.plan === "premium" &&
-    subscription.subscriptionStatus === "active";
+  const isPremium = hasPremiumAccess(subscription);
   const history = user ? await getSubscriptionHistory(user.id) : [];
 
   return (

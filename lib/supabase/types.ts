@@ -1,7 +1,7 @@
 export type VoiceType = "personal" | "designed" | "library";
 export type GenerationStatus = "pending" | "processing" | "completed" | "failed";
 export type Plan = "free" | "premium";
-export type SubscriptionStatus = "inactive" | "active";
+export type SubscriptionStatus = "inactive" | "active" | "cancelled";
 export type PremiumPackageId = "monthly" | "yearly";
 
 export type UserSubscription = {

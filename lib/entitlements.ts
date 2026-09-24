@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentUser, getSessionProfile } from "@/lib/auth";
+import { hasPremiumAccess } from "./premium-access";
 import type {
   Plan,
   PremiumPackageId,
@@ -8,6 +9,9 @@ import type {
   SubscriptionHistoryItem,
   UserSubscription,
 } from "@/lib/supabase/types";
+
+export { getSubscriptionAccessState, hasPremiumAccess } from "./premium-access";
+export type { SubscriptionAccessState } from "./premium-access";
 
 export {
   FREE_TTS_CHARACTER_LIMIT,
@@ -56,8 +60,7 @@ export const getUserSubscription = cache(async function getUserSubscription(
       profile.subscription_ends_at,
 
     renewsAt:
-      (profile as typeof profile & { subscription_renews_at?: string | null })
-        .subscription_renews_at ?? null,
+      profile.subscription_renews_at ?? null,
 
     variantId:
       profile.lemonsqueezy_variant_id,
@@ -79,10 +82,7 @@ export async function isPremium(
 ): Promise<boolean> {
   const subscription = await getUserSubscription(userId);
 
-  return (
-    subscription?.plan === "premium" &&
-    subscription.subscriptionStatus === "active"
-  );
+  return hasPremiumAccess(subscription);
 }
 
 export async function getTTSAccess(
@@ -93,9 +93,7 @@ export async function getTTSAccess(
 }> {
   const subscription = await getUserSubscription(userId);
 
-  const premium =
-    subscription?.plan === "premium" &&
-    subscription.subscriptionStatus === "active";
+  const premium = hasPremiumAccess(subscription);
 
   return {
     plan: premium ? "premium" : "free",

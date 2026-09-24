@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import type { PremiumPackageId, UserSubscription } from "@/lib/supabase/types";
+import { hasPremiumAccess } from "./premium-access";
 
 export type { PremiumPackageId };
 
@@ -28,9 +29,6 @@ export type PremiumPackage = {
 export type PublicPremiumPackage = Omit<PremiumPackage, "variantId"> & {
   isConfigured: boolean;
 };
-
-// Keep customer-facing package details in one place so pricing changes are deliberate.
-// Display amounts are product copy only; Lemon Squeezy still charges the variant price.
 export const PREMIUM_PACKAGES: PremiumPackage[] = [
   {
     id: "monthly",
@@ -104,7 +102,8 @@ export function resolvePremiumPackageId({
 }
 
 export async function resolveActivePremiumPackageId(subscription: UserSubscription | null): Promise<PremiumPackageId | null> {
-  if (!subscription || subscription.plan !== "premium" || subscription.subscriptionStatus !== "active") return null;
+  // Active, or cancelled but still inside the paid period.
+  if (!subscription || !hasPremiumAccess(subscription)) return null;
 
   const stored = resolvePremiumPackageId({
     variantId: subscription.variantId,
@@ -207,17 +206,19 @@ export type LemonSqueezySubscriptionDetails = {
   cancelled: boolean;
 };
 
-export async function getSubscriptionDetails(subscriptionId: string | null): Promise<LemonSqueezySubscriptionDetails | null> {
-  if (!subscriptionId || !process.env.LEMON_SQUEEZY_API_KEY) return null;
-  const response = await fetch(`https://api.lemonsqueezy.com/v1/subscriptions/${subscriptionId}`, {
-    headers: {
-      Authorization: `Bearer ${process.env.LEMON_SQUEEZY_API_KEY}`,
-      Accept: "application/vnd.api+json",
-    },
-    cache: "no-store",
-  });
-  if (!response.ok) return null;
-  const payload = (await response.json()) as { data?: { attributes?: { status?: string; variant_id?: number | string | null; renews_at?: string | null; ends_at?: string | null; cancelled?: boolean } } };
+type LemonSqueezySubscriptionPayload = {
+  data?: {
+    attributes?: {
+      status?: string;
+      variant_id?: number | string | null;
+      renews_at?: string | null;
+      ends_at?: string | null;
+      cancelled?: boolean;
+    };
+  };
+};
+
+function parseSubscriptionDetails(payload: LemonSqueezySubscriptionPayload): LemonSqueezySubscriptionDetails | null {
   const attributes = payload.data?.attributes;
   if (!attributes) return null;
   return {
@@ -229,7 +230,20 @@ export async function getSubscriptionDetails(subscriptionId: string | null): Pro
   };
 }
 
-export async function cancelSubscriptionAtPeriodEnd(subscriptionId: string): Promise<void> {
+export async function getSubscriptionDetails(subscriptionId: string | null): Promise<LemonSqueezySubscriptionDetails | null> {
+  if (!subscriptionId || !process.env.LEMON_SQUEEZY_API_KEY) return null;
+  const response = await fetch(`https://api.lemonsqueezy.com/v1/subscriptions/${subscriptionId}`, {
+    headers: {
+      Authorization: `Bearer ${process.env.LEMON_SQUEEZY_API_KEY}`,
+      Accept: "application/vnd.api+json",
+    },
+    cache: "no-store",
+  });
+  if (!response.ok) return null;
+  return parseSubscriptionDetails((await response.json()) as LemonSqueezySubscriptionPayload);
+}
+
+export async function cancelSubscriptionAtPeriodEnd(subscriptionId: string): Promise<LemonSqueezySubscriptionDetails> {
   const apiKey = requiredEnv("LEMON_SQUEEZY_API_KEY");
   const response = await fetch(`https://api.lemonsqueezy.com/v1/subscriptions/${subscriptionId}`, {
     method: "PATCH",
@@ -241,7 +255,11 @@ export async function cancelSubscriptionAtPeriodEnd(subscriptionId: string): Pro
     body: JSON.stringify({ data: { type: "subscriptions", id: subscriptionId, attributes: { cancelled: true } } }),
     cache: "no-store",
   });
-  if (!response.ok) throw new Error("Unable to cancel the existing subscription.");
+  if (!response.ok) throw new Error("Unable to cancel the subscription.");
+
+  const details = parseSubscriptionDetails((await response.json()) as LemonSqueezySubscriptionPayload);
+  if (!details) throw new Error("Lemon Squeezy returned an unexpected cancellation response.");
+  return details;
 }
 
 export async function getSubscriptionVariantId(subscriptionId: string | null): Promise<string | null> {

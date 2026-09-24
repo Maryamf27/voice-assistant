@@ -2,7 +2,7 @@ import { PageIntro } from "@/components/ui";
 import { PremiumPackages } from "@/components/premium-packages";
 import { getPublicPremiumPackages, getYearlySavingsMessage, isLemonSqueezyConfigured, resolveActivePremiumPackageId } from "@/lib/payment-provider";
 import { getCurrentUser } from "@/lib/auth";
-import { getUserSubscription } from "@/lib/entitlements";
+import { getSubscriptionAccessState, getUserSubscription } from "@/lib/entitlements";
 
 export default function PremiumPage({ searchParams }: { searchParams: Promise<{ checkout?: string }> }) {
   return <PremiumContent searchParams={searchParams} />;
@@ -12,8 +12,8 @@ async function PremiumContent({ searchParams }: { searchParams: Promise<{ checko
   const { checkout } = await searchParams;
   const user = await getCurrentUser();
   const subscription = user ? await getUserSubscription(user.id) : null;
-  const isPremium = subscription?.plan === "premium" && subscription.subscriptionStatus === "active";
-  const activePackageId = isPremium ? await resolveActivePremiumPackageId(subscription) : null;
+  const accessState = getSubscriptionAccessState(subscription);
+  const activePackageId = accessState !== "free" ? await resolveActivePremiumPackageId(subscription) : null;
   const packages = getPublicPremiumPackages();
   const yearlySavingsMessage = getYearlySavingsMessage(packages);
 
@@ -49,7 +49,8 @@ async function PremiumContent({ searchParams }: { searchParams: Promise<{ checko
 
       <PremiumPackages
         packages={packages}
-        isPremium={isPremium}
+        accessState={accessState}
+        accessEndsAt={subscription?.endsAt ?? null}
         activePackageId={activePackageId}
         yearlySavingsMessage={yearlySavingsMessage}
       />

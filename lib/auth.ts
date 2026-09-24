@@ -14,10 +14,11 @@ export type ProfileRow = Pick<
   | "lemonsqueezy_variant_id"
   | "subscription_interval"
   | "subscription_ends_at"
+  | "subscription_renews_at"
 >;
 
 const PROFILE_COLUMNS =
-  "name, plan, subscription_status, lemonsqueezy_subscription_id, lemonsqueezy_customer_id, lemonsqueezy_variant_id, subscription_interval, subscription_ends_at";
+  "name, plan, subscription_status, lemonsqueezy_subscription_id, lemonsqueezy_customer_id, lemonsqueezy_variant_id, subscription_interval, subscription_ends_at, subscription_renews_at";
 
 export const getSessionProfile = cache(async function getSessionProfile(): Promise<{
   user: SessionUser | null;

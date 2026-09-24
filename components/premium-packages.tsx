@@ -3,21 +3,22 @@
 import { useState } from "react";
 import { IconCheck } from "@/components/icons";
 import type { PremiumPackageId, PublicPremiumPackage } from "@/lib/payment-provider";
-
-type ButtonState = "upgrade" | "current" | "switch" | "unconfigured";
+import { formatPakistanShortDate } from "@/lib/subscription-display";
+import { SubscriptionAccessState } from "@/lib/premium-access";
+type ButtonState = "upgrade" | "current" | "unavailable" | "unconfigured";
 
 function resolveButtonState({
-  isPremium,
+  accessState,
   isCurrentPlan,
   isConfigured,
 }: {
-  isPremium: boolean;
+  accessState: SubscriptionAccessState;
   isCurrentPlan: boolean;
   isConfigured: boolean;
 }): ButtonState {
-  if (!isConfigured) return "unconfigured";
   if (isCurrentPlan) return "current";
-  if (isPremium) return "switch";
+  if (accessState !== "free") return "unavailable";
+  if (!isConfigured) return "unconfigured";
   return "upgrade";
 }
 
@@ -36,21 +37,23 @@ function planButtonLabel({
       return "Not available";
     case "current":
       return "Current plan";
-    case "switch":
-      return isYearly ? "Switch to Yearly" : "Switch to Monthly";
+    case "unavailable":
+      return "Unavailable";
     case "upgrade":
-      return "Upgrade to Premium";
+      return isYearly ? "Upgrade to Yearly" : "Upgrade to Monthly";
   }
 }
 
 export function PremiumPackages({
   packages,
-  isPremium,
+  accessState,
+  accessEndsAt,
   activePackageId,
   yearlySavingsMessage,
 }: {
   packages: PublicPremiumPackage[];
-  isPremium: boolean;
+  accessState: SubscriptionAccessState;
+  accessEndsAt: string | null;
   activePackageId: PremiumPackageId | null;
   yearlySavingsMessage: string | null;
 }) {
@@ -86,9 +89,9 @@ export function PremiumPackages({
         {packages.map((item) => {
           const isYearly = item.id === "yearly";
           const isPending = pending === item.id;
-          const isCurrentPlan = isPremium && activePackageId === item.id;
+          const isCurrentPlan = accessState !== "free" && activePackageId === item.id;
           const buttonState = resolveButtonState({
-            isPremium,
+            accessState,
             isCurrentPlan,
             isConfigured: item.isConfigured,
           });
@@ -97,24 +100,20 @@ export function PremiumPackages({
             isYearly,
             isPending,
           });
-          const disableCheckout = pending !== null || buttonState === "unconfigured" || buttonState === "current";
+          const disableCheckout = pending !== null || buttonState !== "upgrade";
 
           return (
             <section
               key={item.id}
               aria-labelledby={`${item.id}-plan-title`}
-              className={`relative flex h-full flex-col rounded-2xl border p-6 shadow-panel transition-shadow duration-300 sm:p-7 ${
-                isYearly
+              className={`relative flex h-full flex-col rounded-2xl border p-6 shadow-panel transition-shadow duration-300 sm:p-7 ${isYearly
                   ? "border-brand-violet/60 shadow-glowViolet"
                   : "border-base-border bg-base-card/90 hover:border-base-border/80"
-              }`}
+                }`}
             >
-              {/* Subtle aurora glow for yearly */}
               {isYearly && (
                 <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl bg-aurora-violet" />
               )}
-
-              {/* ── Header: interval label + badge ── */}
               <div className="relative flex items-start justify-between gap-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-violetSoft">
                   {item.intervalLabel}
@@ -180,15 +179,14 @@ export function PremiumPackages({
                 aria-disabled={disableCheckout}
                 disabled={disableCheckout}
                 onClick={() => startCheckout(item.id)}
-                className={`relative mt-7 w-full rounded-lg px-4 py-3 text-sm font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet ${
-                  buttonState === "current"
+                className={`relative mt-7 w-full rounded-lg px-4 py-3 text-sm font-semibold transition-all duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-violet ${buttonState === "current"
                     ? "cursor-default border border-base-border bg-base-surface text-ink-muted"
-                    : buttonState === "unconfigured"
+                    : buttonState === "unavailable" || buttonState === "unconfigured"
                       ? "cursor-not-allowed border border-base-border bg-base-surface text-ink-faint opacity-60"
                       : isYearly
                         ? "bg-brand-violet text-white shadow-glowViolet hover:bg-brand-violetDim hover:shadow-none active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
                         : "bg-brand-violet/90 text-white hover:bg-brand-violet active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
-                }`}
+                  }`}
               >
                 {isPending && (
                   <span className="mr-2 inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white align-middle" />
@@ -199,7 +197,20 @@ export function PremiumPackages({
               {/* ── Current plan indicator ── */}
               {isCurrentPlan && (
                 <p className="relative mt-2.5 text-center text-xs text-ink-faint">
-                  This is your active billing plan.
+                  {accessState === "cancelled"
+                    ? `Cancelled \u2014 your access continues until ${formatPakistanShortDate(accessEndsAt) ?? "the end of your paid period"
+                    }.`
+                    : "This is your active billing plan."}
+                </p>
+              )}
+
+              {/* ── Plan changes are blocked while a subscription is valid ── */}
+              {buttonState === "unavailable" && (
+                <p className="relative mt-2.5 text-center text-xs text-ink-faint">
+                  {accessState === "cancelled"
+                    ? `Your current Premium subscription remains active until ${formatPakistanShortDate(accessEndsAt) ?? "the end of your paid period"
+                    }. You can choose another plan after it expires.`
+                    : "Plan changes are available after your current subscription ends."}
                 </p>
               )}
             </section>

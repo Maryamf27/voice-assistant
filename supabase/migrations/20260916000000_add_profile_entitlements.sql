@@ -1,6 +1,3 @@
--- Step 3: Free/Premium entitlement foundation.
--- Safe for existing profiles: new columns are backfilled to the free plan.
-
 do $$
 begin
   create type public.profile_plan as enum ('free', 'premium');
@@ -61,8 +58,6 @@ begin
 end;
 $$;
 
--- Preserve owner-only profile access. The trigger above prevents self-upgrades
--- even though users may continue to update permitted profile fields.
 drop policy if exists "profiles_update_own" on public.profiles;
 create policy "profiles_update_own" on public.profiles
   for update to authenticated
@@ -73,6 +68,3 @@ revoke update (plan, subscription_status) on public.profiles from anon, authenti
 comment on column public.profiles.plan is 'Database-owned entitlement plan; changed only by privileged server operations.';
 comment on column public.profiles.subscription_status is 'Database-owned subscription state; changed only by privileged server operations.';
 
--- Verification queries for operators:
--- select id, plan, subscription_status from public.profiles;
--- select tgname from pg_trigger where tgrelid = 'public.profiles'::regclass;

@@ -1,5 +1,3 @@
--- Add the entitlement columns required by the dashboard badge and Lemon Squeezy webhook.
--- Safe to run against existing profiles tables.
 do $$
 begin
   create type public.profile_plan as enum ('free', 'premium');

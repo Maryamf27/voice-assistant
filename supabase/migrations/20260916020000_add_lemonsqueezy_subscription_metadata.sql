@@ -1,4 +1,3 @@
--- Step 5: Lemon Squeezy subscription metadata for webhook reconciliation.
 alter table public.profiles
   add column if not exists lemonsqueezy_subscription_id text,
   add column if not exists lemonsqueezy_customer_id text,

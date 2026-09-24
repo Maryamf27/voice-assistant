@@ -7,7 +7,7 @@ end $$;
 
 do $$
 begin
-  create type public.profile_subscription_status as enum ('inactive', 'active');
+  create type public.profile_subscription_status as enum ('inactive', 'active', 'cancelled');
 exception
   when duplicate_object then null;
 end $$;
@@ -21,6 +21,8 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter type public.profile_subscription_status add value if not exists 'cancelled';
 
 alter table public.profiles
   add column if not exists plan public.profile_plan not null default 'free',

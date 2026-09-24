@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import {
   resolvePremiumPackageId,
   verifyLemonSqueezyWebhook,
   getPremiumPackage,
 } from "@/lib/payment-provider";
-import type { Database, Plan, PremiumPackageId } from "@/lib/supabase/types";
+import type { Database, PremiumPackageId } from "@/lib/supabase/types";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+
+type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
 
 export const runtime = "nodejs";
 
@@ -64,20 +66,45 @@ const INVOICE_EVENTS = new Set([
   "subscription_payment_refunded",
 ]);
 
-function getAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+type EntitlementTransition = "grant" | "cancel" | "revoke";
 
-  if (!url || !key) {
-    throw new Error("Supabase service role is not configured.");
+function resolveTransition(
+  eventName: string,
+  payloadStatus: string | undefined,
+): EntitlementTransition | null {
+  switch (eventName) {
+    case "subscription_created":
+    case "subscription_resumed":
+    case "subscription_unpaused":
+    case "subscription_payment_success":
+    case "subscription_payment_recovered":
+      return "grant";
+
+    case "subscription_cancelled":
+      return "cancel";
+
+    case "subscription_expired":
+    case "subscription_paused":
+    case "subscription_payment_failed":
+      return "revoke";
+
+    case "subscription_updated":
+      switch (payloadStatus) {
+        case "active":
+        case "on_trial":
+          return "grant";
+        case "cancelled":
+          return "cancel";
+        case "expired":
+        case "paused":
+          return "revoke";
+        default:
+          return null;
+      }
+
+    default:
+      return null;
   }
-
-  return createClient<Database>(url, key, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
 }
 
 function normalizeStatus(
@@ -150,7 +177,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = getAdminClient();
+  const supabase = createSupabaseAdminClient();
 
   const attributes = event.data.attributes;
 
@@ -170,10 +197,6 @@ export async function POST(request: Request) {
 
   const status = attributes?.status;
 
-  const endsAt = attributes?.ends_at
-    ? new Date(attributes.ends_at)
-    : null;
-
   let resolvedUserId = event.meta?.custom_data?.user_id;
 
 
@@ -187,29 +210,9 @@ export async function POST(request: Request) {
     resolvedUserId = profile?.id;
   }
 
-  const accessContinues =
-    endsAt !== null && endsAt.getTime() > Date.now();
+  const transition = resolveTransition(eventName, status);
 
-  const grantsAccess =
-    status === "active" ||
-    new Set([
-      "subscription_created",
-      "subscription_resumed",
-      "subscription_unpaused",
-      "subscription_payment_success",
-    ]).has(eventName);
-
-  const revokesAccess =
-    new Set([
-      "subscription_expired",
-      "subscription_paused",
-      "subscription_payment_failed",
-    ]).has(eventName) ||
-    (eventName === "subscription_cancelled" && !accessContinues);
-
-  const entitlementEvent = grantsAccess || revokesAccess;
-
-  if (!entitlementEvent && !isSubscriptionResourceEvent) {
+  if (!transition && !isSubscriptionResourceEvent) {
     return NextResponse.json({
       received: true,
       ignored: "unhandled_event",
@@ -236,7 +239,7 @@ export async function POST(request: Request) {
   const { data: currentProfile, error: profileReadError } = await supabase
     .from("profiles")
     .select(
-      "lemonsqueezy_subscription_id, lemonsqueezy_customer_id, lemonsqueezy_variant_id, subscription_interval, subscription_ends_at, subscription_renews_at",
+      "plan, subscription_status, lemonsqueezy_subscription_id, lemonsqueezy_customer_id, lemonsqueezy_variant_id, subscription_interval, subscription_ends_at, subscription_renews_at",
     )
     .eq("id", resolvedUserId)
     .maybeSingle();
@@ -259,7 +262,10 @@ export async function POST(request: Request) {
   const isStaleSubscriptionEvent = Boolean(
     currentSubscriptionId && currentSubscriptionId !== subscriptionId,
   );
-  const isStaleRevocation = Boolean(revokesAccess && isStaleSubscriptionEvent);
+
+  const sameSubscriptionProfile = isStaleSubscriptionEvent
+    ? null
+    : currentProfile;
 
   const payloadVariantId =
     attributes?.variant_id != null
@@ -268,64 +274,82 @@ export async function POST(request: Request) {
 
   const variantId =
     payloadVariantId ??
-    currentProfile?.lemonsqueezy_variant_id ??
+    sameSubscriptionProfile?.lemonsqueezy_variant_id ??
     null;
-
 
   const resolvedPackageId = resolvePremiumPackageId({
     variantId: payloadVariantId,
     packageId: event.meta?.custom_data?.package_id,
   });
 
+  const fallbackInterval = sameSubscriptionProfile?.subscription_interval;
   const packageId: PremiumPackageId | null =
-    (resolvedPackageId ??
-      (currentProfile?.subscription_interval === "monthly" ||
-      currentProfile?.subscription_interval === "yearly"
-        ? currentProfile.subscription_interval
-        : null)) as PremiumPackageId | null;
+    resolvedPackageId ??
+    (fallbackInterval === "monthly" || fallbackInterval === "yearly"
+      ? fallbackInterval
+      : null);
 
   const subscriptionEndsAt =
     attributes?.ends_at !== undefined
       ? attributes.ends_at
-      : currentProfile?.subscription_ends_at ?? null;
-  const subscriptionRenewsAt = attributes?.renews_at ?? currentProfile?.subscription_renews_at ?? null;
+      : sameSubscriptionProfile?.subscription_ends_at ?? null;
+
+  const subscriptionRenewsAt =
+    attributes?.renews_at ??
+    sameSubscriptionProfile?.subscription_renews_at ??
+    null;
 
   const customerId =
     attributes?.customer_id != null
       ? String(attributes.customer_id)
-      : currentProfile?.lemonsqueezy_customer_id ?? null;
+      : sameSubscriptionProfile?.lemonsqueezy_customer_id ?? null;
+  const cancelAccessContinues =
+    subscriptionEndsAt !== null &&
+    new Date(subscriptionEndsAt).getTime() > Date.now();
 
-  if (entitlementEvent && !isStaleRevocation) {
-    const update = grantsAccess
-      ? {
-          plan: "premium" as Plan,
-          subscription_status: "active" as const,
+  const effectiveTransition: EntitlementTransition | null =
+    transition === "cancel" && !cancelAccessContinues ? "revoke" : transition;
 
-          lemonsqueezy_subscription_id: subscriptionId,
+  const isStaleRevocation =
+    isStaleSubscriptionEvent &&
+    (effectiveTransition === "cancel" || effectiveTransition === "revoke");
 
-          lemonsqueezy_customer_id: customerId,
+  const isLateInvoiceForCancelled =
+    isInvoiceEvent &&
+    effectiveTransition === "grant" &&
+    !isStaleSubscriptionEvent &&
+    currentProfile?.subscription_status === "cancelled";
 
-          lemonsqueezy_variant_id: variantId,
+  const skipProfileUpdate = isStaleRevocation || isLateInvoiceForCancelled;
 
-          subscription_interval: packageId,
+  if (effectiveTransition && !skipProfileUpdate) {
+    const subscriptionFields: ProfileUpdate = {
+      lemonsqueezy_subscription_id: subscriptionId,
+      lemonsqueezy_customer_id: customerId,
+      lemonsqueezy_variant_id: variantId,
+      subscription_interval: packageId,
+      subscription_ends_at: subscriptionEndsAt,
+      subscription_renews_at: subscriptionRenewsAt,
+    };
 
-          subscription_ends_at: subscriptionEndsAt,
-          subscription_renews_at: subscriptionRenewsAt,
+    const update: ProfileUpdate =
+      effectiveTransition === "grant"
+        ? {
+          plan: "premium",
+          subscription_status: "active",
+          ...subscriptionFields,
         }
-      : {
-          plan: "free" as Plan,
-          subscription_status: "inactive" as const,
-
-          lemonsqueezy_subscription_id: subscriptionId,
-
-          lemonsqueezy_customer_id: customerId,
-
-          lemonsqueezy_variant_id: null,
-
-          subscription_interval: null,
-
-          subscription_ends_at: subscriptionEndsAt,
-        };
+        : effectiveTransition === "cancel"
+          ? {
+            plan: "premium",
+            subscription_status: "cancelled",
+            ...subscriptionFields,
+          }
+          : {
+            plan: "free",
+            subscription_status: "inactive",
+            ...subscriptionFields,
+          };
 
     const { error: updateError } = await supabase
       .from("profiles")
@@ -350,10 +374,7 @@ export async function POST(request: Request) {
       eventName,
       status,
     );
-
-    const matchedPackage = variantId
-      ? getPremiumPackage(String(variantId))
-      : null;
+    const matchedPackage = packageId ? getPremiumPackage(packageId) : null;
 
     const price =
       matchedPackage?.priceAmount ?? null;
@@ -363,21 +384,9 @@ export async function POST(request: Request) {
       attributes?.currency ??
       null;
 
-    const renewsAt =
-      attributes?.renews_at ?? null;
-
     const startedAt =
       attributes?.created_at ??
       null;
-
-    if (grantsAccess) {
-      await supabase
-        .from("subscription_history")
-        .update({ status: "cancelled", updated_at: new Date().toISOString() })
-        .eq("user_id", resolvedUserId)
-        .neq("lemonsqueezy_subscription_id", subscriptionId)
-        .eq("status", "active");
-    }
 
     const historyRecord = {
       user_id: resolvedUserId,
@@ -398,9 +407,9 @@ export async function POST(request: Request) {
 
       currency,
 
-      started_at: startedAt,
+      ...(startedAt ? { started_at: startedAt } : {}),
 
-      renews_at: renewsAt,
+      renews_at: subscriptionRenewsAt,
 
       ends_at: subscriptionEndsAt,
 
@@ -450,11 +459,13 @@ export async function POST(request: Request) {
   return NextResponse.json({
     received: true,
 
-    ...(isStaleRevocation
+    ...(skipProfileUpdate
       ? {
-          history_updated: true,
-          ignored_profile_update: "stale_subscription_event",
-        }
+        history_updated: isSubscriptionResourceEvent,
+        ignored_profile_update: isStaleRevocation
+          ? "stale_subscription_event"
+          : "subscription_already_cancelled",
+      }
       : {}),
   });
 }

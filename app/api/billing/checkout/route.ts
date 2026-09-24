@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { cancelSubscriptionAtPeriodEnd, createPremiumCheckout } from "@/lib/payment-provider";
-import { getUserSubscription } from "@/lib/entitlements";
+import { createPremiumCheckout } from "@/lib/payment-provider";
+import { getSubscriptionAccessState, getUserSubscription } from "@/lib/entitlements";
+import { formatPakistanShortDate } from "@/lib/subscription-display";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -19,12 +20,33 @@ export async function POST(request: Request) {
   }
 
   try {
+    // One user = one valid Premium subscription. There is no plan switching:
+    // an existing subscription is never cancelled or replaced here, and no
+    // second checkout is created while it still grants access (active, or
+    // cancelled but still before ends_at).
     const current = await getUserSubscription(user.id);
-    if (current?.subscriptionId && current.packageId === body.packageId) {
-      return NextResponse.json({ error: "You already have this Premium plan active." }, { status: 409 });
+    const accessState = getSubscriptionAccessState(current);
+
+    if (accessState === "active") {
+      return NextResponse.json(
+        {
+          error:
+            "You already have a Premium subscription. You can choose a different billing plan after your current subscription ends.",
+        },
+        { status: 409 },
+      );
     }
-    if (current?.subscriptionId && current.plan === "premium" && current.subscriptionStatus === "active") {
-      await cancelSubscriptionAtPeriodEnd(current.subscriptionId);
+
+    if (accessState === "cancelled") {
+      const endsAt = formatPakistanShortDate(current?.endsAt);
+      return NextResponse.json(
+        {
+          error: `Your current Premium subscription remains active until ${
+            endsAt ?? "the end of your paid period"
+          }. You can choose another plan after it expires.`,
+        },
+        { status: 409 },
+      );
     }
 
     const checkout = await createPremiumCheckout({

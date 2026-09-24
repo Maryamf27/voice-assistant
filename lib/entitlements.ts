@@ -55,6 +55,10 @@ export const getUserSubscription = cache(async function getUserSubscription(
     endsAt:
       profile.subscription_ends_at,
 
+    renewsAt:
+      (profile as typeof profile & { subscription_renews_at?: string | null })
+        .subscription_renews_at ?? null,
+
     variantId:
       profile.lemonsqueezy_variant_id,
 

@@ -236,7 +236,7 @@ export async function POST(request: Request) {
   const { data: currentProfile, error: profileReadError } = await supabase
     .from("profiles")
     .select(
-      "lemonsqueezy_subscription_id, lemonsqueezy_customer_id, lemonsqueezy_variant_id, subscription_interval, subscription_ends_at",
+      "lemonsqueezy_subscription_id, lemonsqueezy_customer_id, lemonsqueezy_variant_id, subscription_interval, subscription_ends_at, subscription_renews_at",
     )
     .eq("id", resolvedUserId)
     .maybeSingle();
@@ -256,12 +256,10 @@ export async function POST(request: Request) {
   const currentSubscriptionId =
     currentProfile?.lemonsqueezy_subscription_id ?? null;
 
-  const isStaleRevocation =
-    Boolean(
-      revokesAccess &&
-        currentSubscriptionId &&
-        currentSubscriptionId !== subscriptionId,
-    );
+  const isStaleSubscriptionEvent = Boolean(
+    currentSubscriptionId && currentSubscriptionId !== subscriptionId,
+  );
+  const isStaleRevocation = Boolean(revokesAccess && isStaleSubscriptionEvent);
 
   const payloadVariantId =
     attributes?.variant_id != null
@@ -290,6 +288,7 @@ export async function POST(request: Request) {
     attributes?.ends_at !== undefined
       ? attributes.ends_at
       : currentProfile?.subscription_ends_at ?? null;
+  const subscriptionRenewsAt = attributes?.renews_at ?? currentProfile?.subscription_renews_at ?? null;
 
   const customerId =
     attributes?.customer_id != null
@@ -311,6 +310,7 @@ export async function POST(request: Request) {
           subscription_interval: packageId,
 
           subscription_ends_at: subscriptionEndsAt,
+          subscription_renews_at: subscriptionRenewsAt,
         }
       : {
           plan: "free" as Plan,
@@ -369,6 +369,15 @@ export async function POST(request: Request) {
     const startedAt =
       attributes?.created_at ??
       null;
+
+    if (grantsAccess) {
+      await supabase
+        .from("subscription_history")
+        .update({ status: "cancelled", updated_at: new Date().toISOString() })
+        .eq("user_id", resolvedUserId)
+        .neq("lemonsqueezy_subscription_id", subscriptionId)
+        .eq("status", "active");
+    }
 
     const historyRecord = {
       user_id: resolvedUserId,

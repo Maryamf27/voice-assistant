@@ -199,6 +199,51 @@ export function verifyLemonSqueezyWebhook(payload: string, signature: string, se
   return signatureBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(signatureBuffer, expectedBuffer);
 }
 
+export type LemonSqueezySubscriptionDetails = {
+  status: string | null;
+  variantId: string | null;
+  renewsAt: string | null;
+  endsAt: string | null;
+  cancelled: boolean;
+};
+
+export async function getSubscriptionDetails(subscriptionId: string | null): Promise<LemonSqueezySubscriptionDetails | null> {
+  if (!subscriptionId || !process.env.LEMON_SQUEEZY_API_KEY) return null;
+  const response = await fetch(`https://api.lemonsqueezy.com/v1/subscriptions/${subscriptionId}`, {
+    headers: {
+      Authorization: `Bearer ${process.env.LEMON_SQUEEZY_API_KEY}`,
+      Accept: "application/vnd.api+json",
+    },
+    cache: "no-store",
+  });
+  if (!response.ok) return null;
+  const payload = (await response.json()) as { data?: { attributes?: { status?: string; variant_id?: number | string | null; renews_at?: string | null; ends_at?: string | null; cancelled?: boolean } } };
+  const attributes = payload.data?.attributes;
+  if (!attributes) return null;
+  return {
+    status: attributes.status ?? null,
+    variantId: attributes.variant_id == null ? null : String(attributes.variant_id),
+    renewsAt: attributes.renews_at ?? null,
+    endsAt: attributes.ends_at ?? null,
+    cancelled: attributes.cancelled === true,
+  };
+}
+
+export async function cancelSubscriptionAtPeriodEnd(subscriptionId: string): Promise<void> {
+  const apiKey = requiredEnv("LEMON_SQUEEZY_API_KEY");
+  const response = await fetch(`https://api.lemonsqueezy.com/v1/subscriptions/${subscriptionId}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/vnd.api+json",
+      Accept: "application/vnd.api+json",
+    },
+    body: JSON.stringify({ data: { type: "subscriptions", id: subscriptionId, attributes: { cancelled: true } } }),
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error("Unable to cancel the existing subscription.");
+}
+
 export async function getSubscriptionVariantId(subscriptionId: string | null): Promise<string | null> {
   if (!subscriptionId || !process.env.LEMON_SQUEEZY_API_KEY) return null;
   const response = await fetch(`https://api.lemonsqueezy.com/v1/subscriptions/${subscriptionId}`, {

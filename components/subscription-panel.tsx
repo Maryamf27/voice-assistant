@@ -160,7 +160,7 @@ export function SubscriptionPanel({
           <div>
             <dt className="text-ink-faint">Next billing</dt>
             <dd className="mt-1 font-medium text-ink-primary">
-              {formatPakistanShortDate(subscription?.endsAt) ??
+              {formatPakistanShortDate(subscription?.renewsAt) ??
                 "Date unavailable"}
             </dd>
           </div>

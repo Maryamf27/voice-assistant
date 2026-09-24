@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { createPremiumCheckout } from "@/lib/payment-provider";
+import { cancelSubscriptionAtPeriodEnd, createPremiumCheckout } from "@/lib/payment-provider";
+import { getUserSubscription } from "@/lib/entitlements";
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -18,6 +19,14 @@ export async function POST(request: Request) {
   }
 
   try {
+    const current = await getUserSubscription(user.id);
+    if (current?.subscriptionId && current.packageId === body.packageId) {
+      return NextResponse.json({ error: "You already have this Premium plan active." }, { status: 409 });
+    }
+    if (current?.subscriptionId && current.plan === "premium" && current.subscriptionStatus === "active") {
+      await cancelSubscriptionAtPeriodEnd(current.subscriptionId);
+    }
+
     const checkout = await createPremiumCheckout({
       packageId: body.packageId,
       userId: user.id,

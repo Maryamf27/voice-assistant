@@ -10,6 +10,7 @@ export type UserSubscription = {
   subscriptionId: string | null;
   customerId: string | null;
   endsAt: string | null;
+  renewsAt: string | null;
   variantId: string | null;
   packageId: PremiumPackageId | null;
 };
@@ -120,6 +121,7 @@ export type Database = {
           lemonsqueezy_variant_id: string | null;
           subscription_interval: PremiumPackageId | null;
           subscription_ends_at: string | null;
+          subscription_renews_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -134,6 +136,7 @@ export type Database = {
           lemonsqueezy_variant_id?: string | null;
           subscription_interval?: PremiumPackageId | null;
           subscription_ends_at?: string | null;
+          subscription_renews_at?: string | null;
         };
         Update: Partial<{
           name: string;
@@ -145,6 +148,7 @@ export type Database = {
           lemonsqueezy_variant_id: string | null;
           subscription_interval: PremiumPackageId | null;
           subscription_ends_at: string | null;
+          subscription_renews_at: string | null;
           updated_at: string;
         }>;
         Relationships: [];

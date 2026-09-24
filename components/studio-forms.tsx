@@ -8,6 +8,7 @@ import { AudioPlayer } from "@/components/audio-playback";
 import { FREE_TTS_CHARACTER_LIMIT, MAX_TTS_REQUEST_LENGTH } from "@/lib/entitlement-constants";
 import { useMyVoices, useInvalidateMyVoices, type MyVoice } from "@/components/voice-queries";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { EMOTION_HELP, EMOTION_LABELS, EXPRESSION_LABELS, VOICE_EMOTIONS, VOICE_EXPRESSIONS, type VoiceEmotion, type VoiceExpression } from "@/lib/tts-emotions";
 
 const MAX_TEXT_LENGTH = MAX_TTS_REQUEST_LENGTH;
 
@@ -29,6 +30,8 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
   const { data: fetchedMyVoices, isFetching: isMyVoicesFetching } = useMyVoices(resolvedUserId ?? null);
   const [text, setText] = useState("");
   const [voiceId, setVoiceId] = useState(initialVoiceId);
+  const [emotion, setEmotion] = useState<VoiceEmotion>("neutral");
+  const [expression, setExpression] = useState<VoiceExpression>("none");
   const [myVoicesOpen, setMyVoicesOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<MobileTab>("library");
   const [loading, setLoading] = useState(false);
@@ -90,7 +93,7 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
       const response = await fetch("/api/tts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: trimmed, ...(voiceId ? { voiceId } : {}) }),
+        body: JSON.stringify({ text: trimmed, emotion, expression, ...(voiceId ? { voiceId } : {}) }),
       });
 
       if (!response.ok) {
@@ -138,6 +141,25 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
             {text.trim().length.toLocaleString()} {characterLimit === null ? "characters · Premium access" : `/ ${characterLimit.toLocaleString()}`}
           </span>
         </div>
+        <fieldset className="mt-5">
+          <legend className="text-sm font-medium text-ink-primary">Emotion / Style</legend>
+          <p className="mt-1 text-xs text-ink-faint">Choose how the voice should deliver your script.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {VOICE_EMOTIONS.map((option) => (
+              <button key={option} type="button" aria-pressed={emotion === option} onClick={() => setEmotion(option)} className={`rounded-full border px-3 py-1.5 text-xs transition ${emotion === option ? "border-brand-violet bg-brand-violet/15 text-brand-violetSoft" : "border-base-border text-ink-muted hover:border-brand-violet/40 hover:text-ink-primary"}`}>
+                {EMOTION_LABELS[option]}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {VOICE_EXPRESSIONS.map((option) => (
+              <button key={option} type="button" aria-pressed={expression === option} onClick={() => setExpression(option)} className={`rounded-full border px-3 py-1.5 text-xs transition ${expression === option ? "border-audio-mint bg-audio-mint/10 text-audio-mint" : "border-base-border text-ink-muted hover:border-audio-mint/40 hover:text-ink-primary"}`}>
+                {EXPRESSION_LABELS[option]}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-[11px] text-ink-faint">{EMOTION_HELP}</p>
+        </fieldset>
         <button
           type="button"
           onClick={handleGenerate}

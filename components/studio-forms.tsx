@@ -9,7 +9,7 @@ import { AudioPlayer } from "@/components/audio-playback";
 import { FREE_TTS_CHARACTER_LIMIT, MAX_TTS_REQUEST_LENGTH } from "@/lib/entitlement-constants";
 import { useMyVoices, useInvalidateMyVoices, type MyVoice } from "@/components/voice-queries";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { EMOTION_HELP, EMOTION_LABELS, EXPRESSION_LABELS, VOICE_EMOTIONS, VOICE_EXPRESSIONS, type VoiceEmotion, type VoiceExpression } from "@/lib/tts-emotions";
+import { buildExpressionText, EMOTION_HELP, EMOTION_LABELS, EXPRESSION_LABELS, VOICE_EMOTIONS, VOICE_EXPRESSIONS, type VoiceEmotion, type VoiceExpression } from "@/lib/tts-emotions";
 
 const MAX_TEXT_LENGTH = MAX_TTS_REQUEST_LENGTH;
 
@@ -69,6 +69,15 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
   const myVoices = combinedVoices.filter(voice => voice.type === "personal");
   const selectedVoice = combinedVoices.find(v => v.id === voiceId);
   void isMyVoicesFetching;
+
+  function applyStyle(nextEmotion: VoiceEmotion, nextExpression: VoiceExpression) {
+    setEmotion(nextEmotion);
+    setExpression(nextExpression);
+    setText((current) => {
+      const content = current.replace(/^(?:\[[^\]]+\]\s*)+/, "").trimStart();
+      return buildExpressionText(content, nextEmotion, nextExpression);
+    });
+  }
 
   useEffect(() => {
     if (audioUrl) resultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -144,14 +153,14 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
           <p className="mt-1 text-xs text-ink-faint">Choose how the voice should deliver your script.</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {VOICE_EMOTIONS.map((option) => (
-              <button key={option} type="button" aria-pressed={emotion === option} onClick={() => setEmotion(option)} className={`rounded-full border px-3 py-1.5 text-xs transition ${emotion === option ? "border-brand-violet bg-brand-violet/15 text-brand-violetSoft" : "border-base-border text-ink-muted hover:border-brand-violet/40 hover:text-ink-primary"}`}>
+              <button key={option} type="button" aria-pressed={emotion === option} onClick={() => applyStyle(option, expression)} className={`rounded-full border px-3 py-1.5 text-xs transition ${emotion === option ? "border-brand-violet bg-brand-violet/15 text-brand-violetSoft" : "border-base-border text-ink-muted hover:border-brand-violet/40 hover:text-ink-primary"}`}>
                 {EMOTION_LABELS[option]}
               </button>
             ))}
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {VOICE_EXPRESSIONS.map((option) => (
-              <button key={option} type="button" aria-pressed={expression === option} onClick={() => setExpression(option)} className={`rounded-full border px-3 py-1.5 text-xs transition ${expression === option ? "border-audio-mint bg-audio-mint/10 text-audio-mint" : "border-base-border text-ink-muted hover:border-audio-mint/40 hover:text-ink-primary"}`}>
+              <button key={option} type="button" aria-pressed={expression === option} onClick={() => applyStyle(emotion, option)} className={`rounded-full border px-3 py-1.5 text-xs transition ${expression === option ? "border-audio-mint bg-audio-mint/10 text-audio-mint" : "border-base-border text-ink-muted hover:border-audio-mint/40 hover:text-ink-primary"}`}>
                 {EXPRESSION_LABELS[option]}
               </button>
             ))}
@@ -314,7 +323,7 @@ function VoicePicker({
   const list = isLibrary ? libraryVoices : myVoices;
   const normalizedQuery = query.trim().toLowerCase();
   const visible = normalizedQuery ? list.filter((voice) => voice.name.toLowerCase().includes(normalizedQuery)) : list;
-  const showSearch = list.length > VOICE_LIST_SEARCH_THRESHOLD;
+  const showSearch = isLibrary || list.length > VOICE_LIST_SEARCH_THRESHOLD;
 
   function switchTab(next: VoicePickerTab) {
     setTab(next);

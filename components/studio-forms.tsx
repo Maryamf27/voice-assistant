@@ -126,9 +126,9 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
-      <Card className="p-5 sm:p-6">
-        <div className="flex items-center justify-between">
+    <div className="grid gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <Card className="min-w-0 p-4 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <label htmlFor="tts-script" className="flex items-center gap-2 text-sm font-medium text-ink-primary">
             <IconWaveform className="h-4 w-4 text-brand-violetSoft" />
             Your script
@@ -142,8 +142,8 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
           placeholder="Start writing what you want your audience to hear…"
           className="mt-3 min-h-64 w-full resize-y rounded-xl border border-base-border bg-base-bg p-4 font-mono text-sm leading-6 text-ink-primary outline-none placeholder:text-ink-faint placeholder:font-sans focus:border-brand-violet"
         />
-        <div className="mt-2 flex justify-between text-xs text-ink-faint">
-          <span>Clear, natural writing gives the best result.</span>
+        <div className="mt-2 flex flex-wrap justify-between gap-x-3 gap-y-1 text-xs text-ink-faint">
+          <span className="min-w-0">Clear, natural writing gives the best result.</span>
           <span className="font-mono">
             {text.trim().length.toLocaleString()} {characterLimit === null ? "characters · Premium access" : `/ ${characterLimit.toLocaleString()}`}
           </span>
@@ -221,8 +221,8 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
           </Card>
         </div>
       </Card>
-      <aside className="space-y-6">
-        <Card className="p-5">
+      <aside className="min-w-0 space-y-4 sm:space-y-6">
+        <Card className="p-4 sm:p-5">
           <h2 className="font-medium text-ink-primary">Voice</h2>
           {selectedVoice && (
             <div className="mt-4 rounded-xl border border-brand-violet/30 bg-brand-violet/10 px-3.5 py-2.5">
@@ -379,7 +379,7 @@ function VoicePicker({
         </div>
       )}
 
-      <div className="max-h-80 space-y-1 overflow-y-auto p-2">
+      <div className="max-h-72 space-y-1 overflow-y-auto p-2 sm:max-h-80">
         {isLibrary && !normalizedQuery && (
           <VoiceRow
             selected={voiceId === ""}

@@ -87,7 +87,7 @@ export function VoiceLibrary() {
             />
           </div>
         </label>
-        <p className="mt-2 flex items-center gap-2 text-xs text-ink-faint">
+        <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-faint">
           {loadingInitial
             ? "Searching…"
             : `Showing ${voices.length} of ${total.toLocaleString()} authorized voices.`}
@@ -223,7 +223,7 @@ function VoiceLibraryCard({ voice }: { voice: LibraryVoiceItem }) {
   }
 
   return (
-    <Card className="group p-5 transition hover:border-brand-violet/30">
+    <Card className="group min-w-0 p-4 transition hover:border-brand-violet/30 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate font-medium text-ink-primary">{voice.name}</p>
@@ -279,7 +279,7 @@ function VoiceLibraryCard({ voice }: { voice: LibraryVoiceItem }) {
           type="button"
           onClick={handleSave}
           disabled={saving || Boolean(savedVoiceId)}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-base-border px-3 py-2 text-xs text-ink-muted transition hover:border-brand-violet/40 hover:text-brand-violetSoft disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg border border-base-border px-2.5 py-2 text-xs text-ink-muted transition hover:border-brand-violet/40 hover:text-brand-violetSoft disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:px-3"
         >
           {savedVoiceId && <IconCheck className="h-3.5 w-3.5" />}
           {savedVoiceId ? "Saved" : saving ? "Saving…" : "Save"}
@@ -288,7 +288,7 @@ function VoiceLibraryCard({ voice }: { voice: LibraryVoiceItem }) {
           type="button"
           onClick={handleUseInTts}
           disabled={usingInTts}
-          className="ml-auto rounded-lg bg-brand-violet px-3 py-2 text-xs font-medium text-white transition hover:bg-brand-violetDim disabled:cursor-not-allowed disabled:opacity-60"
+          className="min-w-0 flex-1 rounded-lg bg-brand-violet px-2.5 py-2 text-xs font-medium text-white transition hover:bg-brand-violetDim disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:px-3"
         >
           {usingInTts ? "Preparing…" : "Use in TTS"}
         </button>

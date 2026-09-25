@@ -9,7 +9,7 @@ import { AudioPlayer } from "@/components/audio-playback";
 import { FREE_TTS_CHARACTER_LIMIT, MAX_TTS_REQUEST_LENGTH } from "@/lib/entitlement-constants";
 import { useMyVoices, useInvalidateMyVoices, type MyVoice } from "@/components/voice-queries";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { EMOTION_HELP, EMOTION_LABELS, EXPRESSION_LABELS, VOICE_EMOTIONS, VOICE_EXPRESSIONS, type VoiceEmotion, type VoiceExpression } from "@/lib/tts-emotions";
+import { buildExpressionText, EMOTION_HELP, EMOTION_LABELS, EXPRESSION_LABELS, VOICE_EMOTIONS, VOICE_EXPRESSIONS, type VoiceEmotion, type VoiceExpression } from "@/lib/tts-emotions";
 
 const MAX_TEXT_LENGTH = MAX_TTS_REQUEST_LENGTH;
 
@@ -70,6 +70,15 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
   const selectedVoice = combinedVoices.find(v => v.id === voiceId);
   void isMyVoicesFetching;
 
+  function applyStyle(nextEmotion: VoiceEmotion, nextExpression: VoiceExpression) {
+    setEmotion(nextEmotion);
+    setExpression(nextExpression);
+    setText((current) => {
+      const content = current.replace(/^(?:\[[^\]]+\]\s*)+/, "").trimStart();
+      return buildExpressionText(content, nextEmotion, nextExpression);
+    });
+  }
+
   useEffect(() => {
     if (audioUrl) resultRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [audioUrl]);
@@ -117,9 +126,9 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
-      <Card className="p-5 sm:p-6">
-        <div className="flex items-center justify-between">
+    <div className="grid gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <Card className="min-w-0 p-4 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <label htmlFor="tts-script" className="flex items-center gap-2 text-sm font-medium text-ink-primary">
             <IconWaveform className="h-4 w-4 text-brand-violetSoft" />
             Your script
@@ -133,8 +142,8 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
           placeholder="Start writing what you want your audience to hear…"
           className="mt-3 min-h-64 w-full resize-y rounded-xl border border-base-border bg-base-bg p-4 font-mono text-sm leading-6 text-ink-primary outline-none placeholder:text-ink-faint placeholder:font-sans focus:border-brand-violet"
         />
-        <div className="mt-2 flex justify-between text-xs text-ink-faint">
-          <span>Clear, natural writing gives the best result.</span>
+        <div className="mt-2 flex flex-wrap justify-between gap-x-3 gap-y-1 text-xs text-ink-faint">
+          <span className="min-w-0">Clear, natural writing gives the best result.</span>
           <span className="font-mono">
             {text.trim().length.toLocaleString()} {characterLimit === null ? "characters · Premium access" : `/ ${characterLimit.toLocaleString()}`}
           </span>
@@ -144,14 +153,14 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
           <p className="mt-1 text-xs text-ink-faint">Choose how the voice should deliver your script.</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {VOICE_EMOTIONS.map((option) => (
-              <button key={option} type="button" aria-pressed={emotion === option} onClick={() => setEmotion(option)} className={`rounded-full border px-3 py-1.5 text-xs transition ${emotion === option ? "border-brand-violet bg-brand-violet/15 text-brand-violetSoft" : "border-base-border text-ink-muted hover:border-brand-violet/40 hover:text-ink-primary"}`}>
+              <button key={option} type="button" aria-pressed={emotion === option} onClick={() => applyStyle(option, expression)} className={`rounded-full border px-3 py-1.5 text-xs transition ${emotion === option ? "border-brand-violet bg-brand-violet/15 text-brand-violetSoft" : "border-base-border text-ink-muted hover:border-brand-violet/40 hover:text-ink-primary"}`}>
                 {EMOTION_LABELS[option]}
               </button>
             ))}
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {VOICE_EXPRESSIONS.map((option) => (
-              <button key={option} type="button" aria-pressed={expression === option} onClick={() => setExpression(option)} className={`rounded-full border px-3 py-1.5 text-xs transition ${expression === option ? "border-audio-mint bg-audio-mint/10 text-audio-mint" : "border-base-border text-ink-muted hover:border-audio-mint/40 hover:text-ink-primary"}`}>
+              <button key={option} type="button" aria-pressed={expression === option} onClick={() => applyStyle(emotion, option)} className={`rounded-full border px-3 py-1.5 text-xs transition ${expression === option ? "border-audio-mint bg-audio-mint/10 text-audio-mint" : "border-base-border text-ink-muted hover:border-audio-mint/40 hover:text-ink-primary"}`}>
                 {EXPRESSION_LABELS[option]}
               </button>
             ))}
@@ -212,8 +221,8 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
           </Card>
         </div>
       </Card>
-      <aside className="space-y-6">
-        <Card className="p-5">
+      <aside className="min-w-0 space-y-4 sm:space-y-6">
+        <Card className="p-4 sm:p-5">
           <h2 className="font-medium text-ink-primary">Voice</h2>
           {selectedVoice && (
             <div className="mt-4 rounded-xl border border-brand-violet/30 bg-brand-violet/10 px-3.5 py-2.5">
@@ -314,7 +323,7 @@ function VoicePicker({
   const list = isLibrary ? libraryVoices : myVoices;
   const normalizedQuery = query.trim().toLowerCase();
   const visible = normalizedQuery ? list.filter((voice) => voice.name.toLowerCase().includes(normalizedQuery)) : list;
-  const showSearch = list.length > VOICE_LIST_SEARCH_THRESHOLD;
+  const showSearch = isLibrary || list.length > VOICE_LIST_SEARCH_THRESHOLD;
 
   function switchTab(next: VoicePickerTab) {
     setTab(next);
@@ -370,7 +379,7 @@ function VoicePicker({
         </div>
       )}
 
-      <div className="max-h-80 space-y-1 overflow-y-auto p-2">
+      <div className="max-h-72 space-y-1 overflow-y-auto p-2 sm:max-h-80">
         {isLibrary && !normalizedQuery && (
           <VoiceRow
             selected={voiceId === ""}

@@ -1,13 +1,12 @@
 "use client";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
-import Link from "next/link";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Card, ProviderUnavailableNotice, Equalizer, Waveform } from "@/components/ui";
 import { Select } from "@/components/select";
 import { IconUpload, IconCheck, IconAlert, IconWaveform, IconMic, IconSparkle, IconLibrary, IconVoices, IconSearch } from "@/components/icons";
 import { AudioPlayer } from "@/components/audio-playback";
 import { FREE_TTS_CHARACTER_LIMIT, MAX_TTS_REQUEST_LENGTH } from "@/lib/entitlement-constants";
-import { useMyVoices, useInvalidateMyVoices, type MyVoice } from "@/components/voice-queries";
+import { useLibraryVoices, useMyVoices, useInvalidateMyVoices, type MyVoice } from "@/components/voice-queries";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { buildExpressionText, EMOTION_HELP, EMOTION_LABELS, EXPRESSION_LABELS, VOICE_EMOTIONS, VOICE_EXPRESSIONS, type VoiceEmotion, type VoiceExpression } from "@/lib/tts-emotions";
 
@@ -30,6 +29,9 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
   const { data: fetchedMyVoices, isFetching: isMyVoicesFetching } = useMyVoices(resolvedUserId ?? null);
   const [text, setText] = useState("");
   const [voiceId, setVoiceId] = useState(initialVoiceId);
+  const [libraryQuery, setLibraryQuery] = useState("");
+  const deferredLibraryQuery = useDeferredValue(libraryQuery);
+  const librarySearch = useLibraryVoices({ query: deferredLibraryQuery });
   const [emotion, setEmotion] = useState<VoiceEmotion>("neutral");
   const [expression, setExpression] = useState<VoiceExpression>("none");
   const [loading, setLoading] = useState(false);
@@ -65,8 +67,15 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
     return Array.from(merged.values());
   }, [voices, fetchedMyVoices]);
 
-  const libraryVoices = combinedVoices.filter(voice => voice.type === "library");
-  const myVoices = combinedVoices.filter(voice => voice.type === "personal");
+  const savedLibraryVoices = combinedVoices.filter((voice) => voice.type === "library");
+  const libraryVoices = useMemo<TtsVoiceOption[]>(() => {
+    const merged = new Map(savedLibraryVoices.map((voice) => [voice.id, voice]));
+    for (const voice of librarySearch.data?.voices ?? []) {
+      merged.set(voice.id, { id: voice.id, name: voice.name, type: "library" });
+    }
+    return Array.from(merged.values());
+  }, [savedLibraryVoices, librarySearch.data?.voices]);
+  const myVoices = combinedVoices.filter((voice) => voice.type === "personal");
   const selectedVoice = combinedVoices.find(v => v.id === voiceId);
   void isMyVoicesFetching;
 
@@ -246,6 +255,9 @@ export function TtsForm({ voices = [], model = null, initialVoiceId = "", charac
             voiceId={voiceId}
             onSelect={setVoiceId}
             libraryVoices={libraryVoices}
+            libraryQuery={libraryQuery}
+            onLibraryQueryChange={setLibraryQuery}
+            libraryLoading={librarySearch.isFetching}
             myVoices={myVoices}
             initialTab={selectedVoice?.type === "personal" ? "my" : "library"}
           />
@@ -307,27 +319,39 @@ function VoicePicker({
   voiceId,
   onSelect,
   libraryVoices,
+  libraryQuery,
+  onLibraryQueryChange,
+  libraryLoading,
   myVoices,
   initialTab,
 }: {
   voiceId: string;
   onSelect: (id: string) => void;
   libraryVoices: TtsVoiceOption[];
+  libraryQuery: string;
+  onLibraryQueryChange: (query: string) => void;
+  libraryLoading: boolean;
   myVoices: TtsVoiceOption[];
   initialTab: VoicePickerTab;
 }) {
   const [tab, setTab] = useState<VoicePickerTab>(initialTab);
-  const [query, setQuery] = useState("");
+  const [myQuery, setMyQuery] = useState("");
 
   const isLibrary = tab === "library";
   const list = isLibrary ? libraryVoices : myVoices;
+  const query = isLibrary ? libraryQuery : myQuery;
   const normalizedQuery = query.trim().toLowerCase();
-  const visible = normalizedQuery ? list.filter((voice) => voice.name.toLowerCase().includes(normalizedQuery)) : list;
+  const visible = isLibrary
+    ? list
+    : normalizedQuery
+      ? list.filter((voice) => voice.name.toLowerCase().includes(normalizedQuery))
+      : list;
   const showSearch = isLibrary || list.length > VOICE_LIST_SEARCH_THRESHOLD;
 
   function switchTab(next: VoicePickerTab) {
     setTab(next);
-    setQuery("");
+    if (next === "library") onLibraryQueryChange("");
+    else setMyQuery("");
   }
 
   const tabClass = (target: VoicePickerTab, tone: "violet" | "mint") =>
@@ -371,8 +395,8 @@ function VoicePicker({
             <input
               type="search"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search voices"
+              onChange={(event) => isLibrary ? onLibraryQueryChange(event.target.value) : setMyQuery(event.target.value)}
+              placeholder={isLibrary ? "Search the voice library" : "Search my voices"}
               className="w-full rounded-lg border border-base-border bg-base-surface py-2 pl-8 pr-3 text-xs text-ink-primary outline-none placeholder:text-ink-faint focus:border-brand-violet"
             />
           </label>
@@ -416,7 +440,7 @@ function VoicePicker({
           <div className="px-3 py-4 text-center">
             <p className="text-sm font-medium text-ink-primary">No library voices saved yet</p>
             <p className="mt-1 text-xs leading-5 text-ink-faint">
-              Browse the Voice Library and choose <span className="text-ink-muted">Use in TTS</span> or <span className="text-ink-muted">Save</span> to add voices here.
+              Search the library above to find a public voice, then select it to use it in TTS.
             </p>
           </div>
         )}
@@ -429,13 +453,8 @@ function VoicePicker({
         )}
       </div>
 
-      {isLibrary && (
-        <div className="border-t border-base-border px-3 py-2.5">
-          <Link href="/dashboard/library" className="flex items-center justify-between text-xs font-medium text-brand-violetSoft transition hover:text-ink-primary">
-            Browse the full Voice Library
-            <span aria-hidden="true">→</span>
-          </Link>
-        </div>
+      {isLibrary && libraryLoading && (
+        <p className="border-t border-base-border px-3 py-2 text-center text-[11px] text-ink-faint">Searching the voice library…</p>
       )}
     </div>
   );
